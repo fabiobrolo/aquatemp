@@ -3,7 +3,6 @@ import logging
 
 from homeassistant.components.climate import HVACMode
 from homeassistant.core import Event
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -104,14 +103,6 @@ class AquaTempCoordinator(DataUpdateCoordinator):
 
         if param_custom_model in device_data:
             device_model = device_data.get(param_custom_model)
-
-        try:
-            dev_reg = dr.async_get(self.hass)
-            device_entry = dev_reg.async_get_device(identifiers={(DOMAIN, device_id)})
-            if device_entry and device_entry.name_by_user:
-                device_nickname = device_entry.name_by_user
-        except Exception:
-            pass
 
         device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
