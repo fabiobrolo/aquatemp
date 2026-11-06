@@ -1,12 +1,12 @@
 # Home Assistant Aqua Temp & Hi Temp Heat Pumps
 
-This is Home Assistant's an integration for PHINX Aqua Temp / HiTemp compatible heat pumps.
-It allows controlling temperature, HVAC mode (heat, cool, auto, off) and fan mode (low, auto).
-It also reports all parameters available in sensors and sensors.
+This is Home Assistant's integration for PHINX Aqua Temp / HiTemp compatible heat pumps (fork of [`radical-squared/aquatemp`](https://github.com/radical-squared/aquatemp)).
+It allows controlling temperature, HVAC mode (`heat`, `cool`, `auto`, `off`) and fan mode (`low`, `auto`).
+It also reports all parameters available in sensors and binary sensors, including accurate online/offline (`device_status`) and availability (`unavailable` when the heat pump is powered off/offline).
 
 AquaTemp's cloud protocol is based on [aquatemp](https://github.com/dst6se/aquatemp) project with additional functionality.
 
-[Changelog](https://github.com/radical-squared/aquatemp/blob/master/CHANGELOG.md)
+[Changelog](https://github.com/fabiobrolo/aquatemp/blob/Custom-component/CHANGELOG.md)
 
 ## How to
 
@@ -25,8 +25,7 @@ Requires complete deletion of integration and reinstall after restart HA
 
 #### Installations via HACS [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 
-- In HACS, look for "Aqua Temp" and install and restart
-- If integration was not found, please add custom repository `radical-squared/aquatemp` as integration
+- In HACS, add custom repository `fabiobrolo/aquatemp` as Integration, install **Aqua Temp** and restart Home Assistant
 - In Settings --> Devices & Services - (Lower Right) "Add Integration"
 
 #### Setup

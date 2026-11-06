@@ -11,27 +11,14 @@
       "minimum": null,
       "maximum": null
     },
-    "cool": {
-      "set": "0",
-      "target": "R01",
-      "minimum": "R08",
-      "maximum": "R09"
-    },
     "heat": {
       "set": "1",
       "target": "R02",
       "minimum": "R10",
       "maximum": "R11"
-    },
-    "auto": {
-      "set": "2",
-      "target": "R03",
-      "minimum": "R08",
-      "maximum": "R11"
     }
   },
   "fan_modes": {
-    "auto": "0",
-    "low": "1"
+    "auto": "0"
   }
 }

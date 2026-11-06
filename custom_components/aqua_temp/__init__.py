@@ -81,9 +81,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     platforms = coordinator.config_manager.platforms
 
-    for platform in platforms:
-        await hass.config_entries.async_forward_entry_unload(entry, platform)
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, platforms)
 
-    del hass.data[DOMAIN][entry.entry_id]
+    if unload_ok:
+        del hass.data[DOMAIN][entry.entry_id]
 
-    return True
+    return unload_ok

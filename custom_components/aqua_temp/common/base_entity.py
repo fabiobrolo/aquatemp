@@ -9,7 +9,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from ..managers.aqua_temp_coordinator import AquaTempCoordinator
-from .consts import ADD_COMPONENT_SIGNALS, DOMAIN
+from .consts import ADD_COMPONENT_SIGNALS, API_STATUS, DOMAIN
 from .entity_descriptions import AquaTempEntityDescription
 
 _LOGGER = logging.getLogger(__name__)
@@ -107,3 +107,23 @@ class BaseEntity(CoordinatorEntity):
     @property
     def data(self) -> dict | None:
         return self._data
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        if self.entity_description.key == API_STATUS:
+            return True
+
+        if not super().available:
+            return False
+
+        if self.entity_description.key in ("device_status", "temperature_unit"):
+            return True
+
+        return self.local_coordinator.get_device_is_online(self.device_code)
+
+    async def async_added_to_hass(self) -> None:
+        """When entity is added to hass, register listener and update attributes immediately."""
+        await super().async_added_to_hass()
+        if hasattr(self, "_handle_coordinator_update"):
+            self._handle_coordinator_update()

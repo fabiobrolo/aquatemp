@@ -47,12 +47,15 @@ class AquaTempSensorEntity(BaseEntity, SensorEntity):
 
     def _handle_coordinator_update(self) -> None:
         """Fetch new state parameters for the sensor."""
-        device_data = self.local_coordinator.get_device_data(self.device_code)
+        device_data = self.local_coordinator.get_device_data(self.device_code) or {}
 
         state = device_data.get(self.entity_description.key)
 
         if isinstance(state, str):
-            state = float(state)
+            try:
+                state = float(state)
+            except (ValueError, TypeError):
+                pass
 
         self._attr_native_value = state
 

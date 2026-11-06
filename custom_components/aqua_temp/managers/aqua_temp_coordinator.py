@@ -1,7 +1,9 @@
+import asyncio
 import logging
 
 from homeassistant.components.climate import HVACMode
 from homeassistant.core import Event
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -13,6 +15,7 @@ from ..common.consts import (
     DOMAIN,
     UPDATE_API_INTERVAL,
 )
+from ..models.exceptions import LoginError
 from .aqua_temp_api import AquaTempAPI
 from .aqua_temp_config_manager import AquaTempConfigManager
 
@@ -59,15 +62,33 @@ class AquaTempCoordinator(DataUpdateCoordinator):
         await self.initialize()
 
     async def initialize(self):
+        """Initialize the integration.
+
+        LoginError (bad credentials) is allowed to propagate so async_setup_entry
+        can mark the integration as failed. Any other exception (DNS timeout,
+        transient network error, AquaTemp cloud blip) is caught and logged so
+        platform setup still proceeds and the regular 5-min update tick retries.
+        """
         _LOGGER.debug("Initializing coordinator")
 
         entry = self.config_manager.entry
         platforms = self.config_manager.platforms
+
+        try:
+            await self._api.initialize(throw_error=True)
+
+        except LoginError:
+            raise
+
+        except Exception as ex:
+            _LOGGER.warning(
+                f"Initial API connect failed; coordinator will retry on next "
+                f"update. Error: {ex}"
+            )
+
         await self.hass.config_entries.async_forward_entry_setups(entry, platforms)
 
         _LOGGER.info(f"Start loading {DOMAIN} integration, Entry ID: {entry.entry_id}")
-
-        await self._api.initialize()
 
         await self.async_request_refresh()
 
@@ -76,13 +97,21 @@ class AquaTempCoordinator(DataUpdateCoordinator):
         param_device_id = self._config_manager.get_api_param(APIParam.DeviceId)
         param_custom_model = self._config_manager.get_api_param(APIParam.CustomModel)
 
-        device_data = self.get_device_data(device_code)
+        device_data = self.get_device_data(device_code) or {}
         device_nickname = device_data.get(param_nickname)
         device_model = device_data.get(param_custom_model)
         device_id = device_data.get(param_device_id)
 
         if param_custom_model in device_data:
             device_model = device_data.get(param_custom_model)
+
+        try:
+            dev_reg = dr.async_get(self.hass)
+            device_entry = dev_reg.async_get_device(identifiers={(DOMAIN, device_id)})
+            if device_entry and device_entry.name_by_user:
+                device_nickname = device_entry.name_by_user
+        except Exception:
+            pass
 
         device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
@@ -128,17 +157,17 @@ class AquaTempCoordinator(DataUpdateCoordinator):
 
     async def set_hvac_mode(self, device_code: str, hvac_mode: HVACMode):
         await self._api.set_hvac_mode(device_code, hvac_mode)
-
+        await asyncio.sleep(1)
         await self.async_request_refresh()
 
     async def set_temperature(self, device_code: str, temperature: float):
         await self._api.set_temperature(device_code, temperature)
-
+        await asyncio.sleep(1)
         await self.async_request_refresh()
 
     async def set_fan_mode(self, device_code: str, fan_mode):
         await self._api.set_fan_mode(device_code, fan_mode)
-
+        await asyncio.sleep(1)
         await self.async_request_refresh()
 
     async def set_temperature_unit(self, device_code: str, option: str):
@@ -150,6 +179,12 @@ class AquaTempCoordinator(DataUpdateCoordinator):
         device_data = self._api.get_device_data(device_code)
 
         return device_data
+
+    def get_device_status(self, device_code: str) -> str:
+        return self._api.get_device_status(device_code)
+
+    def get_device_is_online(self, device_code: str) -> bool:
+        return self._api.get_device_is_online(device_code)
 
     def get_device_target_temperature(self, device_code: str) -> float | None:
         target_temperature = self._api.get_device_target_temperature(device_code)
