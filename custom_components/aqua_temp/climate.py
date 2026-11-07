@@ -60,7 +60,7 @@ class AquaTempClimateEntity(BaseEntity, ClimateEntity, ABC):
         self._attr_hvac_mode = HVACMode.OFF
         self._attr_fan_mode = FAN_AUTO
 
-        self._attr_temperature_unit = (
+        self._attr_native_temperature_unit = (
             coordinator.get_temperature_unit(device_code) or UnitOfTemperature.CELSIUS
         )
         self._attr_min_temp = 15.0
@@ -109,14 +109,14 @@ class AquaTempClimateEntity(BaseEntity, ClimateEntity, ABC):
         self._attr_max_temp = maximum_temperature
         self._attr_hvac_mode = hvac_mode
         self._attr_fan_mode = fan_mode
-        self._attr_target_temperature = target_temperature
-        self._attr_current_temperature = current_temperature
+        self._attr_native_target_temperature = target_temperature
+        self._attr_native_current_temperature = current_temperature
         self._attr_extra_state_attributes = {"device_status": device_status}
 
         _LOGGER.debug(
             f"Climate update - Device: {device_code}, Status: {device_status}, "
-            f"Mode: {self._attr_hvac_mode}, Current: {self._attr_current_temperature}, "
-            f"Target: {self._attr_target_temperature}"
+            f"Mode: {self._attr_hvac_mode}, Current: {self._attr_native_current_temperature}, "
+            f"Target: {self._attr_native_target_temperature}"
         )
 
     async def async_added_to_hass(self) -> None:
