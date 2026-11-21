@@ -347,6 +347,28 @@ class AquaTempAPI:
 
         await self._perform_action(request_data, fan_pc_key)
 
+    async def set_protocol_code(
+        self, device_code: str, protocol_code: str, value: str
+    ):
+        """Set a protocol code parameter on the device."""
+        param_device_code = self._config_manager.get_api_param(APIParam.DeviceCode)
+        param_protocol_code = self._config_manager.get_api_param(APIParam.ProtocolCode)
+
+        request_data = {
+            DEVICE_CONTROL_PARAM: [
+                {
+                    param_device_code: device_code,
+                    param_protocol_code: protocol_code,
+                    DEVICE_CONTROL_VALUE: value,
+                }
+            ]
+        }
+
+        await self._perform_action(request_data, protocol_code)
+
+        if device_code in self._devices:
+            self._devices[device_code][protocol_code] = str(value)
+
     async def _perform_action(
         self, request_data: dict, operation: str, attempt: int = 1
     ):

@@ -12,6 +12,8 @@ from ..common.consts import (
     DATA_ITEM_DEVICES,
     DATA_ITEM_LOGIN_DETAILS,
     DOMAIN,
+    PROTOCOL_CODE_PUMP_MODE,
+    PUMP_MODE_CONTINUOUS,
     UPDATE_API_INTERVAL,
 )
 from ..models.exceptions import LoginError
@@ -213,20 +215,43 @@ class AquaTempCoordinator(DataUpdateCoordinator):
         original_target = self.get_device_target_temperature(device_code)
         min_temp = self.get_device_minimum_temperature(device_code) or 15.0
 
+        device_data = self.get_device_data(device_code) or {}
+        raw_pump_mode = device_data.get(PROTOCOL_CODE_PUMP_MODE)
+        original_pump_mode = (
+            str(raw_pump_mode).strip() if raw_pump_mode not in (None, "") else None
+        )
+
         modes = [m for m in self.get_hvac_modes(device_code) if m != HVACMode.OFF]
         target_mode = modes[0] if modes else HVACMode.HEAT
 
         turned_on = False
         setpoint_lowered = False
+        pump_mode_changed = False
         cancelled = False
 
         _LOGGER.info(
             f"Starting temperature measurement for {device_code}: "
             f"duration={duration_minutes}min, low_setpoint={min_temp}, "
-            f"original_setpoint={original_target}"
+            f"original_setpoint={original_target}, original_p01={original_pump_mode}"
         )
 
         try:
+            if (
+                original_pump_mode is not None
+                and original_pump_mode != PUMP_MODE_CONTINUOUS
+            ):
+                try:
+                    await self._api.set_protocol_code(
+                        device_code, PROTOCOL_CODE_PUMP_MODE, PUMP_MODE_CONTINUOUS
+                    )
+                    pump_mode_changed = True
+                    await asyncio.sleep(1)
+                except Exception as pump_err:
+                    _LOGGER.warning(
+                        f"Could not switch {PROTOCOL_CODE_PUMP_MODE} to "
+                        f"{PUMP_MODE_CONTINUOUS} for {device_code}: {pump_err}"
+                    )
+
             await self._api.set_temperature(device_code, min_temp)
             setpoint_lowered = True
             await asyncio.sleep(2)
@@ -268,13 +293,31 @@ class AquaTempCoordinator(DataUpdateCoordinator):
                 ):
                     await self._api.set_temperature(device_code, original_target)
                     await asyncio.sleep(1)
-
-                if not cancelled:
-                    await self.async_request_refresh()
             except Exception as cleanup_err:
                 _LOGGER.error(
-                    f"Failed to restore state after temperature measurement "
+                    f"Failed to restore power/setpoint after temperature measurement "
                     f"for {device_code}: {cleanup_err}"
+                )
+
+            if pump_mode_changed and original_pump_mode is not None:
+                try:
+                    await self._api.set_protocol_code(
+                        device_code, PROTOCOL_CODE_PUMP_MODE, original_pump_mode
+                    )
+                    await asyncio.sleep(1)
+                except Exception as pump_restore_err:
+                    _LOGGER.error(
+                        f"Failed to restore {PROTOCOL_CODE_PUMP_MODE} to "
+                        f"{original_pump_mode} for {device_code}: {pump_restore_err}"
+                    )
+
+            try:
+                if not cancelled:
+                    await self.async_request_refresh()
+            except Exception as refresh_err:
+                _LOGGER.error(
+                    f"Failed final refresh after temperature measurement "
+                    f"for {device_code}: {refresh_err}"
                 )
             finally:
                 self._measure_tasks.pop(device_code, None)

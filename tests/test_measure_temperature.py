@@ -198,12 +198,17 @@ class FakeHass:
 
 
 class FakeAPI:
-    def __init__(self):
+    def __init__(self, device_data=None, fail_protocol_code=False):
         self.events = []
         self.online = True
         self.power = False
         self.target = 29.0
         self.min_temp = 15.0
+        self.device_data = dict(device_data) if device_data is not None else {"P01": "2"}
+        self.fail_protocol_code = fail_protocol_code
+
+    def get_device_data(self, dc):
+        return dict(self.device_data)
 
     def get_device_is_online(self, dc):
         return self.online
@@ -217,6 +222,12 @@ class FakeAPI:
     def get_device_minimum_temperature(self, dc):
         return self.min_temp
 
+    async def set_protocol_code(self, dc, code, value):
+        if self.fail_protocol_code:
+            raise RuntimeError("protocol code rejected")
+        self.events.append(("set_protocol_code", code, value))
+        self.device_data[code] = value
+
     async def set_temperature(self, dc, temp):
         self.events.append(("set_temperature", temp))
         self.target = temp
@@ -226,13 +237,15 @@ class FakeAPI:
         self.power = mode != HVACMode.OFF
 
 
-def _make_coordinator():
+def _make_coordinator(device_data=None, fail_protocol_code=False):
     cm = AquaTempConfigManager(None, None)
     cm._data = cm._get_defaults()
     cm._hvac_modes["default"] = {"off": None, "heat": "1"}
     cm.set_device("dev1", "default")
     coord = AquaTempCoordinator(FakeHass(), cm)
-    coord._api = FakeAPI()
+    coord._api = FakeAPI(
+        device_data=device_data, fail_protocol_code=fail_protocol_code
+    )
     return coord
 
 
@@ -247,7 +260,7 @@ async def run_tests():
     await coord.set_circulation_duration("dev1", 7)
     assert coord.get_circulation_duration("dev1") == 7
 
-    # 2. Normal flow: low setpoint -> heat -> sleep 7*60 -> refresh -> OFF -> restore 29.0
+    # 2. Normal flow with P01=2: P01->0 -> low setpoint -> heat -> sleep -> OFF -> restore 29.0 -> P01->2
     slept = []
 
     async def fake_sleep(sec):
@@ -262,10 +275,12 @@ async def run_tests():
         await task
 
     assert coord._api.events == [
+        ("set_protocol_code", "P01", "0"),
         ("set_temperature", 15.0),
         ("set_hvac_mode", HVACMode.HEAT),
         ("set_hvac_mode", HVACMode.OFF),
         ("set_temperature", 29.0),
+        ("set_protocol_code", "P01", "2"),
     ], f"Unexpected event order: {coord._api.events}"
     assert 420 in slept
     assert coord.refresh_count == 3
@@ -278,7 +293,7 @@ async def run_tests():
     assert coord._api.events == []
     assert coord.refresh_count == 1
 
-    # 4. User raises target temperature mid-cycle: do not turn off or overwrite
+    # 4. User raises target temperature mid-cycle: do not turn off or overwrite target, but restore P01
     coord = _make_coordinator()
 
     async def user_takeover_sleep(sec):
@@ -290,13 +305,15 @@ async def run_tests():
         await coord._measure_tasks["dev1"]
 
     assert coord._api.events == [
+        ("set_protocol_code", "P01", "0"),
         ("set_temperature", 15.0),
         ("set_hvac_mode", HVACMode.HEAT),
+        ("set_protocol_code", "P01", "2"),
     ], f"User takeover overwritten: {coord._api.events}"
     assert coord._api.power is True
     assert coord._api.target == 31.0
 
-    # 5. Cancelled mid-cycle (unload): still safely turns OFF before restoring 29.0
+    # 5. Cancelled mid-cycle (unload): still safely turns OFF before restoring 29.0 and P01
     coord = _make_coordinator()
     started = asyncio.Event()
 
@@ -311,11 +328,37 @@ async def run_tests():
         await coord.cancel_tasks()
 
     assert coord._api.events == [
+        ("set_protocol_code", "P01", "0"),
         ("set_temperature", 15.0),
         ("set_hvac_mode", HVACMode.HEAT),
         ("set_hvac_mode", HVACMode.OFF),
         ("set_temperature", 29.0),
+        ("set_protocol_code", "P01", "2"),
     ], f"Unsafe cancellation order: {coord._api.events}"
+
+    # 6. P01 already 0 (continuous): skips P01 writes entirely
+    coord = _make_coordinator(device_data={"P01": "0"})
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await coord.measure_temperature("dev1")
+        await coord._measure_tasks["dev1"]
+    assert coord._api.events == [
+        ("set_temperature", 15.0),
+        ("set_hvac_mode", HVACMode.HEAT),
+        ("set_hvac_mode", HVACMode.OFF),
+        ("set_temperature", 29.0),
+    ], f"Unexpected P01 write when already 0: {coord._api.events}"
+
+    # 7. P01 write rejected by API: logs warning and still runs/restores cleanly
+    coord = _make_coordinator(device_data={"P01": "2"}, fail_protocol_code=True)
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await coord.measure_temperature("dev1")
+        await coord._measure_tasks["dev1"]
+    assert coord._api.events == [
+        ("set_temperature", 15.0),
+        ("set_hvac_mode", HVACMode.HEAT),
+        ("set_hvac_mode", HVACMode.OFF),
+        ("set_temperature", 29.0),
+    ], f"Unexpected events on P01 rejection: {coord._api.events}"
 
     print("ALL TESTS PASSED")
 
