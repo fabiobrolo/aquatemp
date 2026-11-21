@@ -134,6 +134,7 @@ class AquaTempCoordinator(DataUpdateCoordinator):
         """
         try:
             await self._api.update()
+            await self._restore_pending_measurements()
 
             config_data = self._config_manager.get_debug_data()
 
@@ -210,6 +211,77 @@ class AquaTempCoordinator(DataUpdateCoordinator):
             self._run_measure_temperature(device_code)
         )
 
+    async def _restore_pending_measurements(self):
+        """Restore P01 / setpoint if an earlier measurement was interrupted."""
+        for device_code in list(self.devices):
+            task = self._measure_tasks.get(device_code)
+            if task and not task.done():
+                continue
+
+            pending = self._config_manager.get_pending_measure_restore(device_code)
+            if not pending or not self.get_device_is_online(device_code):
+                continue
+
+            await self._restore_pending_for_device(device_code, pending)
+
+    async def _restore_pending_for_device(self, device_code: str, pending: dict):
+        min_temp = float(pending.get("min_temp", 15.0))
+        original_target = pending.get("target_temp")
+        original_p01 = pending.get("p01")
+
+        device_data = self.get_device_data(device_code) or {}
+        raw_p01 = device_data.get(PROTOCOL_CODE_PUMP_MODE)
+        current_p01 = str(raw_p01).strip() if raw_p01 not in (None, "") else None
+        current_target = self.get_device_target_temperature(device_code)
+        user_took_over = (
+            current_target is not None and current_target > min_temp + 0.5
+        )
+
+        _LOGGER.warning(
+            f"Recovering interrupted temperature measurement for {device_code}: "
+            f"pending={pending}, current_p01={current_p01}, current_target={current_target}"
+        )
+
+        restored_ok = True
+        try:
+            if not user_took_over and self.get_device_power(device_code):
+                await self._api.set_hvac_mode(device_code, HVACMode.OFF)
+                await asyncio.sleep(2)
+
+            if (
+                not user_took_over
+                and original_target is not None
+                and current_target is not None
+                and current_target <= min_temp + 0.5
+                and original_target != min_temp
+            ):
+                await self._api.set_temperature(device_code, float(original_target))
+                await asyncio.sleep(1)
+        except Exception as err:
+            restored_ok = False
+            _LOGGER.error(
+                f"Failed to recover power/setpoint for {device_code}: {err}"
+            )
+
+        if original_p01 is not None and current_p01 != str(original_p01):
+            try:
+                await self._api.set_protocol_code(
+                    device_code, PROTOCOL_CODE_PUMP_MODE, str(original_p01)
+                )
+                await asyncio.sleep(1)
+            except Exception as err:
+                restored_ok = False
+                _LOGGER.error(
+                    f"Failed to recover {PROTOCOL_CODE_PUMP_MODE} to "
+                    f"{original_p01} for {device_code}: {err}"
+                )
+
+        if restored_ok:
+            await self._config_manager.clear_pending_measure_restore(device_code)
+            _LOGGER.info(
+                f"Recovered interrupted temperature measurement for {device_code}"
+            )
+
     async def _run_measure_temperature(self, device_code: str):
         duration_minutes = self.get_circulation_duration(device_code)
         original_target = self.get_device_target_temperature(device_code)
@@ -228,6 +300,19 @@ class AquaTempCoordinator(DataUpdateCoordinator):
         setpoint_lowered = False
         pump_mode_changed = False
         cancelled = False
+
+        pending_restore = {"min_temp": min_temp}
+        if original_target is not None and original_target != min_temp:
+            pending_restore["target_temp"] = original_target
+        if (
+            original_pump_mode is not None
+            and original_pump_mode != PUMP_MODE_CONTINUOUS
+        ):
+            pending_restore["p01"] = original_pump_mode
+
+        await self._config_manager.set_pending_measure_restore(
+            device_code, pending_restore
+        )
 
         _LOGGER.info(
             f"Starting temperature measurement for {device_code}: "
@@ -272,6 +357,7 @@ class AquaTempCoordinator(DataUpdateCoordinator):
                 f"Error during temperature measurement for {device_code}: {err}"
             )
         finally:
+            restored_ok = True
             try:
                 current_target = self.get_device_target_temperature(device_code)
                 user_took_over = (
@@ -294,6 +380,7 @@ class AquaTempCoordinator(DataUpdateCoordinator):
                     await self._api.set_temperature(device_code, original_target)
                     await asyncio.sleep(1)
             except Exception as cleanup_err:
+                restored_ok = False
                 _LOGGER.error(
                     f"Failed to restore power/setpoint after temperature measurement "
                     f"for {device_code}: {cleanup_err}"
@@ -306,10 +393,14 @@ class AquaTempCoordinator(DataUpdateCoordinator):
                     )
                     await asyncio.sleep(1)
                 except Exception as pump_restore_err:
+                    restored_ok = False
                     _LOGGER.error(
                         f"Failed to restore {PROTOCOL_CODE_PUMP_MODE} to "
                         f"{original_pump_mode} for {device_code}: {pump_restore_err}"
                     )
+
+            if restored_ok:
+                await self._config_manager.clear_pending_measure_restore(device_code)
 
             try:
                 if not cancelled:

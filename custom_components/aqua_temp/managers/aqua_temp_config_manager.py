@@ -24,6 +24,7 @@ from homeassistant.helpers.storage import Store
 from ..common.api_types import APIParam
 from ..common.consts import (
     CONF_CIRCULATION_DURATION,
+    CONF_PENDING_MEASURE_RESTORE,
     CONFIG_FAN_MODES,
     CONFIG_HVAC_MODES,
     CONFIG_HVAC_SET,
@@ -197,9 +198,29 @@ class AquaTempConfigManager:
             f"Set circulation duration for device '{device_code}' to {clamped} min"
         )
 
-        self._data.setdefault(CONF_CIRCULATION_DURATION, {})[device_code] = clamped
+        durations = dict(self._data.get(CONF_CIRCULATION_DURATION, {}))
+        durations[device_code] = clamped
+        self._data[CONF_CIRCULATION_DURATION] = durations
 
         await self._save()
+
+    def get_pending_measure_restore(self, device_code: str) -> dict | None:
+        pending = self._data.get(CONF_PENDING_MEASURE_RESTORE, {})
+        item = pending.get(device_code)
+        return dict(item) if isinstance(item, dict) else None
+
+    async def set_pending_measure_restore(self, device_code: str, state: dict):
+        pending = dict(self._data.get(CONF_PENDING_MEASURE_RESTORE, {}))
+        pending[device_code] = dict(state)
+        self._data[CONF_PENDING_MEASURE_RESTORE] = pending
+        await self._save()
+
+    async def clear_pending_measure_restore(self, device_code: str):
+        pending = dict(self._data.get(CONF_PENDING_MEASURE_RESTORE, {}))
+        if device_code in pending:
+            pending.pop(device_code)
+            self._data[CONF_PENDING_MEASURE_RESTORE] = pending
+            await self._save()
 
     def set_device(self, device_code: str, product_id: str):
         config = self._protocol_codes_configuration.get(product_id)
@@ -356,6 +377,7 @@ class AquaTempConfigManager:
         data = {
             CONF_TEMPERATURE_UNIT: {},
             CONF_CIRCULATION_DURATION: {},
+            CONF_PENDING_MEASURE_RESTORE: {},
         }
 
         return data

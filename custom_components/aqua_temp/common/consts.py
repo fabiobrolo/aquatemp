@@ -67,6 +67,7 @@ CONFIG_SET_CURRENT_TEMPERATURE = "current_temperature"
 
 API_STATUS = "api_status"
 CONF_CIRCULATION_DURATION = "circulation_duration"
+CONF_PENDING_MEASURE_RESTORE = "pending_measure_restore"
 BUTTON_MEASURE_TEMPERATURE = "measure_temperature"
 DEFAULT_CIRCULATION_DURATION = 5
 MIN_CIRCULATION_DURATION = 1

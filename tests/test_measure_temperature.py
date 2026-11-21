@@ -206,6 +206,14 @@ class FakeAPI:
         self.min_temp = 15.0
         self.device_data = dict(device_data) if device_data is not None else {"P01": "2"}
         self.fail_protocol_code = fail_protocol_code
+        self.login_details = {}
+
+    @property
+    def devices(self):
+        return {"dev1": self.device_data}
+
+    async def update(self):
+        pass
 
     def get_device_data(self, dc):
         return dict(self.device_data)
@@ -359,6 +367,73 @@ async def run_tests():
         ("set_hvac_mode", HVACMode.OFF),
         ("set_temperature", 29.0),
     ], f"Unexpected events on P01 rejection: {coord._api.events}"
+    assert coord.config_manager.get_pending_measure_restore("dev1") is None
+
+    # 8. Crash recovery: pending restore stays while offline, restores when device comes online
+    coord = _make_coordinator(device_data={"P01": "0"})
+    coord._api.online = False
+    coord._api.power = True
+    coord._api.target = 15.0
+    await coord.config_manager.set_pending_measure_restore(
+        "dev1", {"min_temp": 15.0, "target_temp": 29.0, "p01": "2"}
+    )
+
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        # Device still offline on startup: do nothing, keep pending flag
+        await coord._async_update_data()
+        assert coord._api.events == []
+        assert coord.config_manager.get_pending_measure_restore("dev1") is not None
+
+        # Device comes online: turns OFF -> restores 29.0 -> restores P01=2 -> clears flag
+        coord._api.online = True
+        await coord._async_update_data()
+
+    assert coord._api.events == [
+        ("set_hvac_mode", HVACMode.OFF),
+        ("set_temperature", 29.0),
+        ("set_protocol_code", "P01", "2"),
+    ], f"Unexpected recovery events: {coord._api.events}"
+    assert coord.config_manager.get_pending_measure_restore("dev1") is None
+
+    # Next update is a clean no-op
+    coord._api.events.clear()
+    await coord._async_update_data()
+    assert coord._api.events == []
+
+    # 9. Crash recovery when user already raised target temp to 31: keeps heating, still restores P01
+    coord = _make_coordinator(device_data={"P01": "0"})
+    coord._api.online = True
+    coord._api.power = True
+    coord._api.target = 31.0
+    await coord.config_manager.set_pending_measure_restore(
+        "dev1", {"min_temp": 15.0, "target_temp": 29.0, "p01": "2"}
+    )
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await coord._async_update_data()
+
+    assert coord._api.events == [
+        ("set_protocol_code", "P01", "2"),
+    ], f"User takeover not respected in crash recovery: {coord._api.events}"
+    assert coord._api.power is True
+    assert coord._api.target == 31.0
+    assert coord.config_manager.get_pending_measure_restore("dev1") is None
+
+    # 10. Crash recovery retries on next update if P01 write temporarily fails
+    coord = _make_coordinator(device_data={"P01": "0"}, fail_protocol_code=True)
+    coord._api.online = True
+    coord._api.power = False
+    coord._api.target = 29.0
+    await coord.config_manager.set_pending_measure_restore(
+        "dev1", {"min_temp": 15.0, "target_temp": 29.0, "p01": "2"}
+    )
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await coord._async_update_data()
+        assert coord.config_manager.get_pending_measure_restore("dev1") is not None
+
+        coord._api.fail_protocol_code = False
+        await coord._async_update_data()
+        assert coord._api.events == [("set_protocol_code", "P01", "2")]
+        assert coord.config_manager.get_pending_measure_restore("dev1") is None
 
     print("ALL TESTS PASSED")
 
