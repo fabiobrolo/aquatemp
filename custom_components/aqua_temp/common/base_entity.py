@@ -9,7 +9,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from ..managers.aqua_temp_coordinator import AquaTempCoordinator
-from .consts import ADD_COMPONENT_SIGNALS, API_STATUS, DOMAIN
+from .consts import ADD_COMPONENT_SIGNALS, API_STATUS, CONF_CIRCULATION_DURATION, DOMAIN
 from .entity_descriptions import AquaTempEntityDescription
 
 _LOGGER = logging.getLogger(__name__)
@@ -117,7 +117,11 @@ class BaseEntity(CoordinatorEntity):
         if not super().available:
             return False
 
-        if self.entity_description.key in ("device_status", "temperature_unit"):
+        if self.entity_description.key in (
+            "device_status",
+            "temperature_unit",
+            CONF_CIRCULATION_DURATION,
+        ):
             return True
 
         return self.local_coordinator.get_device_is_online(self.device_code)

@@ -56,9 +56,19 @@
         "name": "Status"
       }
     },
+    "button": {
+      "measure_temperature": {
+        "name": "Measure Temperature"
+      }
+    },
     "climate": {
       "mode": {
         "name": ""
+      }
+    },
+    "number": {
+      "circulation_duration": {
+        "name": "Circulation Duration"
       }
     },
     "select": {

@@ -40,6 +40,7 @@ class AquaTempCoordinator(DataUpdateCoordinator):
 
         self._api = AquaTempAPI(hass, config_manager)
         self._config_manager = config_manager
+        self._measure_tasks: dict[str, asyncio.Task] = {}
 
     @property
     def api_status(self):
@@ -165,6 +166,118 @@ class AquaTempCoordinator(DataUpdateCoordinator):
         await self._config_manager.update_temperature_unit(device_code, option)
 
         await self.async_request_refresh()
+
+    def get_circulation_duration(self, device_code: str) -> int:
+        return self._config_manager.get_circulation_duration(device_code)
+
+    async def set_circulation_duration(self, device_code: str, duration: int):
+        await self._config_manager.update_circulation_duration(device_code, duration)
+        self.async_update_listeners()
+
+    async def cancel_tasks(self):
+        for task in list(self._measure_tasks.values()):
+            if not task.done():
+                task.cancel()
+        if self._measure_tasks:
+            await asyncio.gather(*self._measure_tasks.values(), return_exceptions=True)
+        self._measure_tasks.clear()
+
+    async def measure_temperature(self, device_code: str):
+        """Circulate water with minimum setpoint so the heat pump reads pool temperature."""
+        if not self.get_device_is_online(device_code):
+            _LOGGER.warning(
+                f"Cannot measure temperature for {device_code}: device is offline"
+            )
+            return
+
+        existing = self._measure_tasks.get(device_code)
+        if existing and not existing.done():
+            _LOGGER.warning(
+                f"Temperature measurement already running for {device_code}"
+            )
+            return
+
+        if self.get_device_power(device_code):
+            _LOGGER.info(
+                f"Device {device_code} is already running; refreshing temperature only"
+            )
+            await self.async_request_refresh()
+            return
+
+        self._measure_tasks[device_code] = self.hass.async_create_task(
+            self._run_measure_temperature(device_code)
+        )
+
+    async def _run_measure_temperature(self, device_code: str):
+        duration_minutes = self.get_circulation_duration(device_code)
+        original_target = self.get_device_target_temperature(device_code)
+        min_temp = self.get_device_minimum_temperature(device_code) or 15.0
+
+        modes = [m for m in self.get_hvac_modes(device_code) if m != HVACMode.OFF]
+        target_mode = modes[0] if modes else HVACMode.HEAT
+
+        turned_on = False
+        setpoint_lowered = False
+        cancelled = False
+
+        _LOGGER.info(
+            f"Starting temperature measurement for {device_code}: "
+            f"duration={duration_minutes}min, low_setpoint={min_temp}, "
+            f"original_setpoint={original_target}"
+        )
+
+        try:
+            await self._api.set_temperature(device_code, min_temp)
+            setpoint_lowered = True
+            await asyncio.sleep(2)
+
+            await self._api.set_hvac_mode(device_code, target_mode)
+            turned_on = True
+            await asyncio.sleep(1)
+            await self.async_request_refresh()
+
+            await asyncio.sleep(duration_minutes * 60)
+
+            await self.async_request_refresh()
+        except asyncio.CancelledError:
+            cancelled = True
+            raise
+        except Exception as err:
+            _LOGGER.error(
+                f"Error during temperature measurement for {device_code}: {err}"
+            )
+        finally:
+            try:
+                current_target = self.get_device_target_temperature(device_code)
+                user_took_over = (
+                    not cancelled
+                    and current_target is not None
+                    and current_target > min_temp + 0.5
+                )
+
+                # Turn off BEFORE restoring original setpoint so compressor never triggers
+                if turned_on and not user_took_over and self.get_device_power(device_code):
+                    await self._api.set_hvac_mode(device_code, HVACMode.OFF)
+                    await asyncio.sleep(2)
+
+                if (
+                    setpoint_lowered
+                    and not user_took_over
+                    and original_target is not None
+                    and original_target != min_temp
+                ):
+                    await self._api.set_temperature(device_code, original_target)
+                    await asyncio.sleep(1)
+
+                if not cancelled:
+                    await self.async_request_refresh()
+            except Exception as cleanup_err:
+                _LOGGER.error(
+                    f"Failed to restore state after temperature measurement "
+                    f"for {device_code}: {cleanup_err}"
+                )
+            finally:
+                self._measure_tasks.pop(device_code, None)
 
     def get_device_data(self, device_code: str) -> dict | None:
         device_data = self._api.get_device_data(device_code)

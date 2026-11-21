@@ -23,13 +23,17 @@ from homeassistant.helpers.storage import Store
 
 from ..common.api_types import APIParam
 from ..common.consts import (
+    CONF_CIRCULATION_DURATION,
     CONFIG_FAN_MODES,
     CONFIG_HVAC_MODES,
     CONFIG_HVAC_SET,
     CONFIGURATION_FILE,
+    DEFAULT_CIRCULATION_DURATION,
     DEFAULT_ENTRY_ID,
     DEFAULT_NAME,
     DOMAIN,
+    MAX_CIRCULATION_DURATION,
+    MIN_CIRCULATION_DURATION,
     PRODUCT_ID_DEFAULT,
     PRODUCT_IDS,
     ProductParameter,
@@ -80,6 +84,7 @@ class AquaTempConfigManager:
         self._config_data = ConfigData()
 
         self._is_initialized = False
+        self._store = None
 
         if hass is not None:
             self._store = Store(
@@ -184,6 +189,18 @@ class AquaTempConfigManager:
 
         await self._save()
 
+    async def update_circulation_duration(self, device_code: str, value: int):
+        clamped = max(
+            MIN_CIRCULATION_DURATION, min(MAX_CIRCULATION_DURATION, int(value))
+        )
+        _LOGGER.debug(
+            f"Set circulation duration for device '{device_code}' to {clamped} min"
+        )
+
+        self._data.setdefault(CONF_CIRCULATION_DURATION, {})[device_code] = clamped
+
+        await self._save()
+
     def set_device(self, device_code: str, product_id: str):
         config = self._protocol_codes_configuration.get(product_id)
         entity_descriptions = self._entity_descriptions.get(product_id)
@@ -210,6 +227,16 @@ class AquaTempConfigManager:
         temperature_unit = temperature_units.get(device_code, UnitOfTemperature.CELSIUS)
 
         return temperature_unit
+
+    def get_circulation_duration(self, device_code: str) -> int:
+        durations = self._data.get(CONF_CIRCULATION_DURATION, {})
+        value = durations.get(device_code, DEFAULT_CIRCULATION_DURATION)
+        try:
+            return max(
+                MIN_CIRCULATION_DURATION, min(MAX_CIRCULATION_DURATION, int(value))
+            )
+        except (ValueError, TypeError):
+            return DEFAULT_CIRCULATION_DURATION
 
     def get_supported_protocol_codes(self, device_code) -> list[str]:
         product_id = self._get_product_id(
@@ -326,7 +353,10 @@ class AquaTempConfigManager:
 
     @staticmethod
     def _get_defaults() -> dict:
-        data = {CONF_TEMPERATURE_UNIT: {}}
+        data = {
+            CONF_TEMPERATURE_UNIT: {},
+            CONF_CIRCULATION_DURATION: {},
+        }
 
         return data
 

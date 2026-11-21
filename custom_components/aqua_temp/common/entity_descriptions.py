@@ -1,14 +1,28 @@
 from dataclasses import dataclass
 
-from custom_components.aqua_temp.common.consts import API_STATUS, POWER_MODE_ON
+from custom_components.aqua_temp.common.consts import (
+    API_STATUS,
+    BUTTON_MEASURE_TEMPERATURE,
+    CONF_CIRCULATION_DURATION,
+    MAX_CIRCULATION_DURATION,
+    MIN_CIRCULATION_DURATION,
+    POWER_MODE_ON,
+)
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntityDescription,
 )
+from homeassistant.components.button import ButtonEntityDescription
 from homeassistant.components.climate import ClimateEntityDescription, HVACMode
+from homeassistant.components.number import NumberEntityDescription
 from homeassistant.components.select import SelectEntityDescription
 from homeassistant.components.sensor import SensorEntityDescription
-from homeassistant.const import EntityCategory, Platform, UnitOfTemperature
+from homeassistant.const import (
+    EntityCategory,
+    Platform,
+    UnitOfTemperature,
+    UnitOfTime,
+)
 from homeassistant.helpers.entity import EntityDescription
 
 
@@ -50,6 +64,20 @@ class AquaTempSelectEntityDescription(
     platform: Platform | None = Platform.SELECT
 
 
+@dataclass(frozen=True, kw_only=True)
+class AquaTempNumberEntityDescription(
+    NumberEntityDescription, AquaTempEntityDescription
+):
+    platform: Platform | None = Platform.NUMBER
+
+
+@dataclass(frozen=True, kw_only=True)
+class AquaTempButtonEntityDescription(
+    ButtonEntityDescription, AquaTempEntityDescription
+):
+    platform: Platform | None = Platform.BUTTON
+
+
 DEFAULT_ENTITY_DESCRIPTIONS: list[AquaTempEntityDescription] = [
     AquaTempBinarySensorEntityDescription(
         key=API_STATUS,
@@ -67,6 +95,25 @@ DEFAULT_ENTITY_DESCRIPTIONS: list[AquaTempEntityDescription] = [
         entity_category=EntityCategory.CONFIG,
         is_protocol_code=False,
         translation_key="temperature_unit",
+    ),
+    AquaTempNumberEntityDescription(
+        key=CONF_CIRCULATION_DURATION,
+        name="Circulation Duration",
+        entity_category=EntityCategory.CONFIG,
+        is_protocol_code=False,
+        native_min_value=MIN_CIRCULATION_DURATION,
+        native_max_value=MAX_CIRCULATION_DURATION,
+        native_step=1,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        icon="mdi:timer-outline",
+        translation_key=CONF_CIRCULATION_DURATION,
+    ),
+    AquaTempButtonEntityDescription(
+        key=BUTTON_MEASURE_TEMPERATURE,
+        name="Measure Temperature",
+        is_protocol_code=False,
+        icon="mdi:thermometer-water",
+        translation_key=BUTTON_MEASURE_TEMPERATURE,
     ),
     AquaTempBinarySensorEntityDescription(
         key="is_fault",

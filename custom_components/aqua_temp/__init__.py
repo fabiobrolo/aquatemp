@@ -77,6 +77,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     coordinator: AquaTempCoordinator = hass.data[DOMAIN][entry.entry_id]
 
+    await coordinator.cancel_tasks()
     await coordinator.config_manager.remove(entry.entry_id)
 
     platforms = coordinator.config_manager.platforms
