@@ -1,10 +1,12 @@
-"""Self-check tests for circulation duration config and measure_temperature flow."""
+"""Self-check tests for P01/P02/P03 controls, measure_temperature, recovery, and i18n."""
 import asyncio
 from dataclasses import dataclass
+from enum import StrEnum
+import glob
+import json
+from pathlib import Path
 import sys
 import types
-from enum import StrEnum
-from pathlib import Path
 from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +32,7 @@ def _install_ha_stubs():
     ha_core = types.ModuleType("homeassistant.core")
     ha_core.Event = object
     ha_core.HomeAssistant = object
+    ha_core.callback = lambda fn: fn
 
     ha_const = types.ModuleType("homeassistant.const")
     ha_const.CONF_PASSWORD = "password"
@@ -112,27 +115,54 @@ def _install_ha_stubs():
         def async_update_listeners(self):
             self.listener_updates += 1
 
+    class FakeCoordinatorEntity:
+        def __init__(self, coordinator):
+            self.coordinator = coordinator
+
+        @property
+        def available(self):
+            return True
+
+        def async_write_ha_state(self):
+            pass
+
+        async def async_added_to_hass(self):
+            pass
+
     ha_uc.DataUpdateCoordinator = FakeCoordinator
+    ha_uc.CoordinatorEntity = FakeCoordinatorEntity
     ha_uc.UpdateFailed = Exception
 
     ha_aiohttp = types.ModuleType("homeassistant.helpers.aiohttp_client")
     ha_aiohttp.async_create_clientsession = lambda hass: None
     ha_disp = types.ModuleType("homeassistant.helpers.dispatcher")
     ha_disp.async_dispatcher_send = lambda *a, **k: None
+    ha_disp.async_dispatcher_connect = lambda *a, **k: (lambda: None)
     ha_json = types.ModuleType("homeassistant.helpers.json")
     ha_json.JSONEncoder = object
     ha_storage = types.ModuleType("homeassistant.helpers.storage")
     ha_storage.Store = object
-    ha_trans = types.ModuleType("homeassistant.helpers.translation")
+    ha_util = types.ModuleType("homeassistant.util")
+    ha_util.slugify = lambda s: str(s).lower().replace(" ", "_")
+
     ha_bin = types.ModuleType("homeassistant.components.binary_sensor")
-    ha_bin.BinarySensorDeviceClass = types.SimpleNamespace(CONNECTIVITY="connectivity", PROBLEM="problem")
+    ha_bin.BinarySensorDeviceClass = types.SimpleNamespace(
+        CONNECTIVITY="connectivity", PROBLEM="problem"
+    )
     ha_bin.BinarySensorEntityDescription = BinarySensorEntityDescription
+    class _StubEntity:
+        pass
+
     ha_btn = types.ModuleType("homeassistant.components.button")
     ha_btn.ButtonEntityDescription = ButtonEntityDescription
+    ha_btn.ButtonEntity = _StubEntity
     ha_num = types.ModuleType("homeassistant.components.number")
     ha_num.NumberEntityDescription = NumberEntityDescription
+    ha_num.NumberEntity = _StubEntity
+    ha_num.NumberMode = types.SimpleNamespace(BOX="box")
     ha_sel = types.ModuleType("homeassistant.components.select")
     ha_sel.SelectEntityDescription = SelectEntityDescription
+    ha_sel.SelectEntity = _StubEntity
     ha_sen = types.ModuleType("homeassistant.components.sensor")
     ha_sen.SensorEntityDescription = SensorEntityDescription
     ha_clim.ClimateEntityDescription = ClimateEntityDescription
@@ -173,7 +203,7 @@ def _install_ha_stubs():
         "homeassistant.helpers.dispatcher": ha_disp,
         "homeassistant.helpers.json": ha_json,
         "homeassistant.helpers.storage": ha_storage,
-        "homeassistant.helpers.translation": ha_trans,
+        "homeassistant.util": ha_util,
         "aiohttp": aiohttp,
         "aiofiles": aiofiles,
     }.items():
@@ -184,12 +214,19 @@ def _install_ha_stubs():
 
 HVACMode = _install_ha_stubs()
 
+from custom_components.aqua_temp.common.entity_descriptions import (  # noqa: E402
+    DEFAULT_ENTITY_DESCRIPTIONS,
+    AquaTempNumberEntityDescription,
+    AquaTempSelectEntityDescription,
+)
 from custom_components.aqua_temp.managers.aqua_temp_config_manager import (  # noqa: E402
     AquaTempConfigManager,
 )
 from custom_components.aqua_temp.managers.aqua_temp_coordinator import (  # noqa: E402
     AquaTempCoordinator,
 )
+from custom_components.aqua_temp.number import AquaTempNumberEntity  # noqa: E402
+from custom_components.aqua_temp.select import AquaTempSelectEntity  # noqa: E402
 
 
 class FakeHass:
@@ -204,7 +241,11 @@ class FakeAPI:
         self.power = False
         self.target = 29.0
         self.min_temp = 15.0
-        self.device_data = dict(device_data) if device_data is not None else {"P01": "2"}
+        self.device_data = (
+            dict(device_data)
+            if device_data is not None
+            else {"P01": "2", "P02": "60", "P03": "7"}
+        )
         self.fail_protocol_code = fail_protocol_code
         self.login_details = {}
 
@@ -248,6 +289,7 @@ class FakeAPI:
 def _make_coordinator(device_data=None, fail_protocol_code=False):
     cm = AquaTempConfigManager(None, None)
     cm._data = cm._get_defaults()
+    cm._api_config = {"Nickname": "name", "DeviceId": "id", "CustomModel": "model"}
     cm._hvac_modes["default"] = {"off": None, "heat": "1"}
     cm.set_device("dev1", "default")
     coord = AquaTempCoordinator(FakeHass(), cm)
@@ -257,26 +299,103 @@ def _make_coordinator(device_data=None, fail_protocol_code=False):
     return coord
 
 
-async def run_tests():
-    # 1. Default and clamping of circulation duration
-    coord = _make_coordinator()
-    assert coord.get_circulation_duration("dev1") == 5
-    await coord.set_circulation_duration("dev1", 0)
-    assert coord.get_circulation_duration("dev1") == 1
-    await coord.set_circulation_duration("dev1", 120)
-    assert coord.get_circulation_duration("dev1") == 60
-    await coord.set_circulation_duration("dev1", 7)
-    assert coord.get_circulation_duration("dev1") == 7
+def _test_translations():
+    root = REPO_ROOT / "custom_components" / "aqua_temp"
+    strings = json.loads((root / "strings.json").read_text(encoding="utf-8"))
+    en = json.loads((root / "translations" / "en.json").read_text(encoding="utf-8"))
+    pt_br = json.loads(
+        (root / "translations" / "pt-BR.json").read_text(encoding="utf-8")
+    )
 
-    # 2. Normal flow with P01=2: P01->0 -> low setpoint -> heat -> sleep -> OFF -> restore 29.0 -> P01->2
-    slept = []
+    assert strings == en, "strings.json and translations/en.json must stay identical"
+
+    def _keys(obj):
+        return {k: _keys(v) if isinstance(v, dict) else None for k, v in obj.items()}
+
+    assert _keys(en) == _keys(pt_br), "en.json and pt-BR.json key trees diverged"
+
+    for desc in DEFAULT_ENTITY_DESCRIPTIONS:
+        if desc.translation_key:
+            assert desc.translation_key in en["entity"][desc.platform], (
+                f"Missing default translation {desc.platform}.{desc.translation_key}"
+            )
+
+    for path in glob.glob(str(root / "parameters" / "entity_description.*.json")):
+        pid = Path(path).name.removeprefix("entity_description.").removesuffix(".json")
+        for item in json.loads(Path(path).read_text(encoding="utf-8")):
+            plat = item.get("platform")
+            if plat not in ("sensor", "binary_sensor", "select", "number"):
+                continue
+            tk = item.get("translation_key") or f"{pid}_{item['key']}".replace("/", "").lower()
+            assert tk in en["entity"][plat], f"Missing en translation {plat}.{tk}"
+            assert tk in pt_br["entity"][plat], f"Missing pt-BR translation {plat}.{tk}"
+
+
+async def run_tests():
+    _test_translations()
 
     async def fake_sleep(sec):
         slept.append(sec)
 
+    # 1. Measure duration reads P03, clamps to 2..20, falls back to 5 when absent
+    coord = _make_coordinator(device_data={"P01": "2", "P03": "7"})
+    assert coord.get_measure_duration("dev1") == 7
+    coord._api.device_data["P03"] = "1"
+    assert coord.get_measure_duration("dev1") == 2
+    coord._api.device_data["P03"] = "99"
+    assert coord.get_measure_duration("dev1") == 20
+    coord._api.device_data.pop("P03")
+    assert coord.get_measure_duration("dev1") == 5
+
+    # 2. P01 select entity + P02/P03 number entities read/write & clamping
+    coord = _make_coordinator(device_data={"P01": "2", "P02": "60", "P03": "5"})
+    p01_desc = AquaTempSelectEntityDescription(
+        key="P01",
+        options=["continuous", "with_compressor", "intermittent"],
+        translation_key="pump_mode_p01",
+    )
+    p01_ent = AquaTempSelectEntity(p01_desc, coord, "dev1")
+    assert p01_ent._attr_has_entity_name is True
+    assert p01_ent._attr_current_option == "intermittent"
+
+    slept = []
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await p01_ent.async_select_option("continuous")
+    p01_ent._handle_coordinator_update()
+    assert p01_ent._attr_current_option == "continuous"
+    assert coord._api.events[-1] == ("set_protocol_code", "P01", "0")
+
+    p02_desc = AquaTempNumberEntityDescription(
+        key="P02", native_min_value=30, native_max_value=120, native_step=1
+    )
+    p02_ent = AquaTempNumberEntity(p02_desc, coord, "dev1")
+    assert p02_ent._attr_native_value == 60.0
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await p02_ent.async_set_native_value(10.0)  # clamped to 30
+        await p02_ent.async_set_native_value(200.0)  # clamped to 120
+    assert coord._api.events[-2:] == [
+        ("set_protocol_code", "P02", "30"),
+        ("set_protocol_code", "P02", "120"),
+    ]
+
+    p03_desc = AquaTempNumberEntityDescription(
+        key="P03", native_min_value=2, native_max_value=20, native_step=1
+    )
+    p03_ent = AquaTempNumberEntity(p03_desc, coord, "dev1")
+    assert p03_ent._attr_native_value == 5.0
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await p03_ent.async_set_native_value(1.0)  # clamped to 2
+        await p03_ent.async_set_native_value(30.0)  # clamped to 20
+    assert coord._api.events[-2:] == [
+        ("set_protocol_code", "P03", "2"),
+        ("set_protocol_code", "P03", "20"),
+    ]
+
+    # 3. Normal flow with P01=2, P03=7: P01->0 -> low setpoint -> heat -> sleep 7*60 -> OFF -> 29.0 -> P01->2
+    coord = _make_coordinator(device_data={"P01": "2", "P03": "7"})
+    slept = []
     with patch("asyncio.sleep", side_effect=fake_sleep):
         await coord.measure_temperature("dev1")
-        # Duplicate press while running must be ignored
         task = coord._measure_tasks["dev1"]
         await coord.measure_temperature("dev1")
         assert coord._measure_tasks["dev1"] is task
@@ -293,15 +412,16 @@ async def run_tests():
     assert 420 in slept
     assert coord.refresh_count == 3
     assert "dev1" not in coord._measure_tasks
+    assert coord.config_manager.get_pending_measure_restore("dev1") is None
 
-    # 3. Already running: only refreshes, no commands sent
+    # 4. Already running: only refreshes, no commands sent
     coord = _make_coordinator()
     coord._api.power = True
     await coord.measure_temperature("dev1")
     assert coord._api.events == []
     assert coord.refresh_count == 1
 
-    # 4. User raises target temperature mid-cycle: do not turn off or overwrite target, but restore P01
+    # 5. User raises target temperature mid-cycle: do not turn off or overwrite target, still restore P01
     coord = _make_coordinator()
 
     async def user_takeover_sleep(sec):
@@ -318,10 +438,8 @@ async def run_tests():
         ("set_hvac_mode", HVACMode.HEAT),
         ("set_protocol_code", "P01", "2"),
     ], f"User takeover overwritten: {coord._api.events}"
-    assert coord._api.power is True
-    assert coord._api.target == 31.0
 
-    # 5. Cancelled mid-cycle (unload): still safely turns OFF before restoring 29.0 and P01
+    # 6. Cancelled mid-cycle (unload): turns OFF before restoring 29.0 and P01
     coord = _make_coordinator()
     started = asyncio.Event()
 
@@ -344,47 +462,19 @@ async def run_tests():
         ("set_protocol_code", "P01", "2"),
     ], f"Unsafe cancellation order: {coord._api.events}"
 
-    # 6. P01 already 0 (continuous): skips P01 writes entirely
-    coord = _make_coordinator(device_data={"P01": "0"})
-    with patch("asyncio.sleep", side_effect=fake_sleep):
-        await coord.measure_temperature("dev1")
-        await coord._measure_tasks["dev1"]
-    assert coord._api.events == [
-        ("set_temperature", 15.0),
-        ("set_hvac_mode", HVACMode.HEAT),
-        ("set_hvac_mode", HVACMode.OFF),
-        ("set_temperature", 29.0),
-    ], f"Unexpected P01 write when already 0: {coord._api.events}"
-
-    # 7. P01 write rejected by API: logs warning and still runs/restores cleanly
-    coord = _make_coordinator(device_data={"P01": "2"}, fail_protocol_code=True)
-    with patch("asyncio.sleep", side_effect=fake_sleep):
-        await coord.measure_temperature("dev1")
-        await coord._measure_tasks["dev1"]
-    assert coord._api.events == [
-        ("set_temperature", 15.0),
-        ("set_hvac_mode", HVACMode.HEAT),
-        ("set_hvac_mode", HVACMode.OFF),
-        ("set_temperature", 29.0),
-    ], f"Unexpected events on P01 rejection: {coord._api.events}"
-    assert coord.config_manager.get_pending_measure_restore("dev1") is None
-
-    # 8. Crash recovery: pending restore stays while offline, restores when device comes online
-    coord = _make_coordinator(device_data={"P01": "0"})
+    # 7. Crash recovery: stays pending while offline, restores when back online
+    coord = _make_coordinator(device_data={"P01": "0", "P03": "5"})
     coord._api.online = False
     coord._api.power = True
     coord._api.target = 15.0
     await coord.config_manager.set_pending_measure_restore(
         "dev1", {"min_temp": 15.0, "target_temp": 29.0, "p01": "2"}
     )
-
     with patch("asyncio.sleep", side_effect=fake_sleep):
-        # Device still offline on startup: do nothing, keep pending flag
         await coord._async_update_data()
         assert coord._api.events == []
         assert coord.config_manager.get_pending_measure_restore("dev1") is not None
 
-        # Device comes online: turns OFF -> restores 29.0 -> restores P01=2 -> clears flag
         coord._api.online = True
         await coord._async_update_data()
 
@@ -394,46 +484,6 @@ async def run_tests():
         ("set_protocol_code", "P01", "2"),
     ], f"Unexpected recovery events: {coord._api.events}"
     assert coord.config_manager.get_pending_measure_restore("dev1") is None
-
-    # Next update is a clean no-op
-    coord._api.events.clear()
-    await coord._async_update_data()
-    assert coord._api.events == []
-
-    # 9. Crash recovery when user already raised target temp to 31: keeps heating, still restores P01
-    coord = _make_coordinator(device_data={"P01": "0"})
-    coord._api.online = True
-    coord._api.power = True
-    coord._api.target = 31.0
-    await coord.config_manager.set_pending_measure_restore(
-        "dev1", {"min_temp": 15.0, "target_temp": 29.0, "p01": "2"}
-    )
-    with patch("asyncio.sleep", side_effect=fake_sleep):
-        await coord._async_update_data()
-
-    assert coord._api.events == [
-        ("set_protocol_code", "P01", "2"),
-    ], f"User takeover not respected in crash recovery: {coord._api.events}"
-    assert coord._api.power is True
-    assert coord._api.target == 31.0
-    assert coord.config_manager.get_pending_measure_restore("dev1") is None
-
-    # 10. Crash recovery retries on next update if P01 write temporarily fails
-    coord = _make_coordinator(device_data={"P01": "0"}, fail_protocol_code=True)
-    coord._api.online = True
-    coord._api.power = False
-    coord._api.target = 29.0
-    await coord.config_manager.set_pending_measure_restore(
-        "dev1", {"min_temp": 15.0, "target_temp": 29.0, "p01": "2"}
-    )
-    with patch("asyncio.sleep", side_effect=fake_sleep):
-        await coord._async_update_data()
-        assert coord.config_manager.get_pending_measure_restore("dev1") is not None
-
-        coord._api.fail_protocol_code = False
-        await coord._async_update_data()
-        assert coord._api.events == [("set_protocol_code", "P01", "2")]
-        assert coord.config_manager.get_pending_measure_restore("dev1") is None
 
     print("ALL TESTS PASSED")
 

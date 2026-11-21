@@ -9,7 +9,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from ..managers.aqua_temp_coordinator import AquaTempCoordinator
-from .consts import ADD_COMPONENT_SIGNALS, API_STATUS, CONF_CIRCULATION_DURATION, DOMAIN
+from .consts import ADD_COMPONENT_SIGNALS, API_STATUS, DOMAIN
 from .entity_descriptions import AquaTempEntityDescription
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,9 +59,9 @@ async def async_setup_base_entry(
 
 
 class BaseEntity(CoordinatorEntity):
+    _attr_has_entity_name = True
     _device_code: str
     _entity_description: AquaTempEntityDescription
-    _translations: dict
 
     def __init__(
         self,
@@ -76,10 +76,6 @@ class BaseEntity(CoordinatorEntity):
 
         device_info = coordinator.get_device(device_code)
 
-        entity_name = coordinator.config_manager.get_entity_name(
-            entity_description, device_info
-        )
-
         unique_id_parts = [
             DOMAIN,
             entity_description.platform,
@@ -90,7 +86,6 @@ class BaseEntity(CoordinatorEntity):
         unique_id = slugify("_".join(unique_id_parts))
 
         self._attr_device_info = device_info
-        self._attr_name = entity_name
         self._attr_unique_id = unique_id
 
         self._data = {}
@@ -120,7 +115,6 @@ class BaseEntity(CoordinatorEntity):
         if self.entity_description.key in (
             "device_status",
             "temperature_unit",
-            CONF_CIRCULATION_DURATION,
         ):
             return True
 

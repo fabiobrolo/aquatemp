@@ -16,25 +16,18 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import translation
-from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.json import JSONEncoder
 from homeassistant.helpers.storage import Store
 
 from ..common.api_types import APIParam
 from ..common.consts import (
-    CONF_CIRCULATION_DURATION,
     CONF_PENDING_MEASURE_RESTORE,
     CONFIG_FAN_MODES,
     CONFIG_HVAC_MODES,
     CONFIG_HVAC_SET,
     CONFIGURATION_FILE,
-    DEFAULT_CIRCULATION_DURATION,
     DEFAULT_ENTRY_ID,
     DEFAULT_NAME,
-    DOMAIN,
-    MAX_CIRCULATION_DURATION,
-    MIN_CIRCULATION_DURATION,
     PRODUCT_ID_DEFAULT,
     PRODUCT_IDS,
     ProductParameter,
@@ -43,6 +36,8 @@ from ..common.entity_descriptions import (
     DEFAULT_ENTITY_DESCRIPTIONS,
     AquaTempBinarySensorEntityDescription,
     AquaTempEntityDescription,
+    AquaTempNumberEntityDescription,
+    AquaTempSelectEntityDescription,
     AquaTempSensorEntityDescription,
 )
 from ..models.config_data import ConfigData
@@ -52,7 +47,6 @@ _LOGGER = logging.getLogger(__name__)
 
 class AquaTempConfigManager:
     _api_config: dict | None
-    _translations: dict | None
     _entry: ConfigEntry | None
     _entry_id: str
     _entry_title: str
@@ -76,7 +70,6 @@ class AquaTempConfigManager:
 
         self._devices = {}
         self._api_config = None
-        self._translations = None
 
         self._entry = entry
         self._entry_id = DEFAULT_ENTRY_ID if entry is None else entry.entry_id
@@ -129,10 +122,6 @@ class AquaTempConfigManager:
 
         await self._load_api_config()
 
-        self._translations = await translation.async_get_translations(
-            self._hass, self._hass.config.language, "entity", {DOMAIN}
-        )
-
         self._is_initialized = True
 
     async def remove(self, entry_id: str):
@@ -156,51 +145,12 @@ class AquaTempConfigManager:
             if should_save:
                 await self._store.async_save(data)
 
-    def get_entity_name(
-        self, entity_description: AquaTempEntityDescription, device_info: DeviceInfo
-    ) -> str:
-        entity_key = entity_description.key
-        platform = entity_description.platform
-
-        device_name = device_info.get("name")
-
-        translation_key = f"component.{DOMAIN}.entity.{platform}.{entity_key}.name"
-
-        translated_name = self._translations.get(
-            translation_key, entity_description.name
-        )
-
-        _LOGGER.debug(
-            f"Translations requested, Key: {translation_key}, "
-            f"Entity: {entity_description.name}, Value: {translated_name}"
-        )
-
-        entity_name = (
-            device_name
-            if translated_name is None or translated_name == ""
-            else f"{device_name} {translated_name}"
-        )
-
-        return entity_name
-
     async def update_temperature_unit(self, device_code: str, value: str):
         _LOGGER.debug(f"Set temperature unit for device '{device_code}' to {value}")
 
-        self._data[CONF_TEMPERATURE_UNIT][device_code] = value
-
-        await self._save()
-
-    async def update_circulation_duration(self, device_code: str, value: int):
-        clamped = max(
-            MIN_CIRCULATION_DURATION, min(MAX_CIRCULATION_DURATION, int(value))
-        )
-        _LOGGER.debug(
-            f"Set circulation duration for device '{device_code}' to {clamped} min"
-        )
-
-        durations = dict(self._data.get(CONF_CIRCULATION_DURATION, {}))
-        durations[device_code] = clamped
-        self._data[CONF_CIRCULATION_DURATION] = durations
+        units = dict(self._data.get(CONF_TEMPERATURE_UNIT, {}))
+        units[device_code] = value
+        self._data[CONF_TEMPERATURE_UNIT] = units
 
         await self._save()
 
@@ -248,16 +198,6 @@ class AquaTempConfigManager:
         temperature_unit = temperature_units.get(device_code, UnitOfTemperature.CELSIUS)
 
         return temperature_unit
-
-    def get_circulation_duration(self, device_code: str) -> int:
-        durations = self._data.get(CONF_CIRCULATION_DURATION, {})
-        value = durations.get(device_code, DEFAULT_CIRCULATION_DURATION)
-        try:
-            return max(
-                MIN_CIRCULATION_DURATION, min(MAX_CIRCULATION_DURATION, int(value))
-            )
-        except (ValueError, TypeError):
-            return DEFAULT_CIRCULATION_DURATION
 
     def get_supported_protocol_codes(self, device_code) -> list[str]:
         product_id = self._get_product_id(
@@ -376,7 +316,6 @@ class AquaTempConfigManager:
     def _get_defaults() -> dict:
         data = {
             CONF_TEMPERATURE_UNIT: {},
-            CONF_CIRCULATION_DURATION: {},
             CONF_PENDING_MEASURE_RESTORE: {},
         }
 
@@ -443,12 +382,13 @@ class AquaTempConfigManager:
         for data_item in json_data:
             platform = data_item.get("platform")
             key = data_item.get("key")
-            translation_key = f"{product_id}_{key}".replace("/", "").lower()
+            translation_key = data_item.get(
+                "translation_key", f"{product_id}_{key}".replace("/", "").lower()
+            )
 
             if platform == Platform.SENSOR:
                 sensor_entity = AquaTempSensorEntityDescription(
                     key=key,
-                    name=data_item.get("name"),
                     device_class=data_item.get("device_class"),
                     native_unit_of_measurement=data_item.get("unit_of_measurement"),
                     entity_category=EntityCategory.DIAGNOSTIC,
@@ -460,7 +400,6 @@ class AquaTempConfigManager:
             elif platform == Platform.BINARY_SENSOR:
                 binary_sensor_entity = AquaTempBinarySensorEntityDescription(
                     key=key,
-                    name=data_item.get("name"),
                     device_class=data_item.get("device_class"),
                     on_value=data_item.get("on_value"),
                     entity_category=EntityCategory.DIAGNOSTIC,
@@ -469,8 +408,34 @@ class AquaTempConfigManager:
 
                 entities.append(binary_sensor_entity)
 
+            elif platform == Platform.SELECT:
+                select_entity = AquaTempSelectEntityDescription(
+                    key=key,
+                    options=data_item.get("options"),
+                    icon=data_item.get("icon"),
+                    entity_category=EntityCategory.CONFIG,
+                    translation_key=translation_key,
+                )
+
+                entities.append(select_entity)
+
+            elif platform == Platform.NUMBER:
+                number_entity = AquaTempNumberEntityDescription(
+                    key=key,
+                    device_class=data_item.get("device_class"),
+                    native_unit_of_measurement=data_item.get("unit_of_measurement"),
+                    native_min_value=data_item.get("min"),
+                    native_max_value=data_item.get("max"),
+                    native_step=data_item.get("step", 1),
+                    icon=data_item.get("icon"),
+                    entity_category=EntityCategory.CONFIG,
+                    translation_key=translation_key,
+                )
+
+                entities.append(number_entity)
+
             else:
-                entity = AquaTempEntityDescription(key=key, name=data_item.get("name"))
+                entity = AquaTempEntityDescription(key=key)
 
                 entities.append(entity)
 

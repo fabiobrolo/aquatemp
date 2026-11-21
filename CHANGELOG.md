@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.1.0
+
+- Expose water pump controller parameters as editable configuration entities: `Water pump mode [P01]` (`select`: continuous / with_compressor / intermittent), `Water pump interval [P02]` (`number`: 30–120 min), and `Water pump duration [P03]` (`number`: 2–20 min)
+- Replace local `circulation_duration` number with `P03` for the `Measure temperature` button duration (with `5 min` fallback for models without `P03`)
+- Adopt modern Home Assistant localization (`has_entity_name = True`, `translation_key`, translated select states) with full `en` and `pt-BR` translations
+- Document `P01`, `P02`, `P03`, and `Measure temperature` in `README.md`
+
+## 3.0.44
+
+- Persist `pending_measure_restore` before starting `Measure temperature` so `P01`, power state, and target temperature are automatically recovered on startup or when the device returns online after an interruption
+
+## 3.0.43
+
+- Automatically switch `P01` to continuous (`0`) during `Measure temperature` and restore original `P01` afterward
+
+## 3.0.42
+
+- Add `Measure temperature` button to circulate pool water at minimum setpoint without engaging the compressor
+
 ## 3.0.37
 
 - Initialize data using `async_request_refresh` instead of `async_config_entry_first_refresh` to remove warning message

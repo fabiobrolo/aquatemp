@@ -26,7 +26,7 @@ async def async_setup_entry(
 
 
 class AquaTempNumberEntity(BaseEntity, NumberEntity, ABC):
-    """Representation of a number entity."""
+    """Representation of a writable numeric protocol parameter."""
 
     def __init__(
         self,
@@ -35,22 +35,35 @@ class AquaTempNumberEntity(BaseEntity, NumberEntity, ABC):
         device_code: str,
     ):
         super().__init__(entity_description, coordinator, device_code)
-
         self._attr_mode = NumberMode.BOX
-        self._attr_native_value = float(
-            coordinator.get_circulation_duration(self._device_code)
-        )
+        self._attr_native_value = self._read_native_value()
+
+    def _read_native_value(self) -> float | None:
+        device_data = self.local_coordinator.get_device_data(self._device_code) or {}
+        raw_value = device_data.get(self.entity_description.key)
+        if raw_value in (None, ""):
+            return None
+        try:
+            return float(str(raw_value))
+        except (ValueError, TypeError):
+            return None
 
     async def async_set_native_value(self, value: float) -> None:
-        """Update the circulation duration."""
-        await self.local_coordinator.set_circulation_duration(
-            self._device_code, int(round(value))
+        """Update the parameter on the device."""
+        min_val = self.entity_description.native_min_value
+        max_val = self.entity_description.native_max_value
+        clamped = float(value)
+        if min_val is not None:
+            clamped = max(float(min_val), clamped)
+        if max_val is not None:
+            clamped = min(float(max_val), clamped)
+
+        await self.local_coordinator.set_protocol_code(
+            self._device_code, self.entity_description.key, str(int(round(clamped)))
         )
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        """Fetch updated configuration value."""
-        self._attr_native_value = float(
-            self.local_coordinator.get_circulation_duration(self._device_code)
-        )
+        """Fetch updated numeric value from coordinator."""
+        self._attr_native_value = self._read_native_value()
         self.async_write_ha_state()

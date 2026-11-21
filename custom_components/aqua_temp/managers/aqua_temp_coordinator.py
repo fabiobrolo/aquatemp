@@ -11,8 +11,12 @@ from ..common.consts import (
     DATA_ITEM_CONFIG,
     DATA_ITEM_DEVICES,
     DATA_ITEM_LOGIN_DETAILS,
+    DEFAULT_CIRCULATION_DURATION,
     DOMAIN,
+    PROTOCOL_CODE_PUMP_DURATION,
     PROTOCOL_CODE_PUMP_MODE,
+    PUMP_DURATION_MAX,
+    PUMP_DURATION_MIN,
     PUMP_MODE_CONTINUOUS,
     UPDATE_API_INTERVAL,
 )
@@ -170,12 +174,23 @@ class AquaTempCoordinator(DataUpdateCoordinator):
 
         await self.async_request_refresh()
 
-    def get_circulation_duration(self, device_code: str) -> int:
-        return self._config_manager.get_circulation_duration(device_code)
+    async def set_protocol_code(
+        self, device_code: str, protocol_code: str, value: str
+    ):
+        await self._api.set_protocol_code(device_code, protocol_code, value)
+        await asyncio.sleep(1)
+        await self.async_request_refresh()
 
-    async def set_circulation_duration(self, device_code: str, duration: int):
-        await self._config_manager.update_circulation_duration(device_code, duration)
-        self.async_update_listeners()
+    def get_measure_duration(self, device_code: str) -> int:
+        device_data = self.get_device_data(device_code) or {}
+        raw_value = device_data.get(PROTOCOL_CODE_PUMP_DURATION)
+        if raw_value not in (None, ""):
+            try:
+                parsed = int(round(float(str(raw_value))))
+                return max(PUMP_DURATION_MIN, min(PUMP_DURATION_MAX, parsed))
+            except (ValueError, TypeError):
+                pass
+        return DEFAULT_CIRCULATION_DURATION
 
     async def cancel_tasks(self):
         for task in list(self._measure_tasks.values()):
@@ -283,7 +298,7 @@ class AquaTempCoordinator(DataUpdateCoordinator):
             )
 
     async def _run_measure_temperature(self, device_code: str):
-        duration_minutes = self.get_circulation_duration(device_code)
+        duration_minutes = self.get_measure_duration(device_code)
         original_target = self.get_device_target_temperature(device_code)
         min_temp = self.get_device_minimum_temperature(device_code) or 15.0
 

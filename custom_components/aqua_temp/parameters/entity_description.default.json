@@ -782,24 +782,39 @@
   },
   {
     "key": "P01",
-    "name": "Mode [P01]",
-    "platform": "sensor",
-    "device_class": null,
-    "unit_of_measurement": null
+    "name": "Water Pump Mode [P01]",
+    "platform": "select",
+    "options": [
+      "continuous",
+      "with_compressor",
+      "intermittent"
+    ],
+    "icon": "mdi:pump",
+    "translation_key": "pump_mode_p01"
   },
   {
     "key": "P02",
-    "name": "Interval [P02]",
-    "platform": "sensor",
+    "name": "Water Pump Interval [P02]",
+    "platform": "number",
     "device_class": "duration",
-    "unit_of_measurement": "min"
+    "unit_of_measurement": "min",
+    "min": 30,
+    "max": 120,
+    "step": 1,
+    "icon": "mdi:timer-sand",
+    "translation_key": "pump_interval_p02"
   },
   {
     "key": "P03",
-    "name": "Duration [P03]",
-    "platform": "sensor",
+    "name": "Water Pump Duration [P03]",
+    "platform": "number",
     "device_class": "duration",
-    "unit_of_measurement": "min"
+    "unit_of_measurement": "min",
+    "min": 2,
+    "max": 20,
+    "step": 1,
+    "icon": "mdi:timer-outline",
+    "translation_key": "pump_duration_p03"
   },
   {
     "key": "P04",

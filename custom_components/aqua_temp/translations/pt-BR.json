@@ -1,0 +1,1258 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurar integração Aqua Temp",
+        "description": "Informe suas credenciais da conta Aqua Temp",
+        "data": {
+          "title": "Título",
+          "username": "Usuário",
+          "password": "Senha",
+          "api_type": "Tipo de API"
+        }
+      }
+    },
+    "error": {
+      "invalid_credentials": "Credenciais inválidas",
+      "corrupted_encryption_key": "Chave de criptografia corrompida, siga os passos em https://github.com/fabiobrolo/aquatemp#invalid-token"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Atualizar integração Aqua Temp",
+        "description": "Atualize suas credenciais da conta Aqua Temp",
+        "data": {
+          "title": "Título",
+          "username": "Usuário",
+          "password": "Senha",
+          "api_type": "Tipo de API"
+        }
+      }
+    },
+    "error": {
+      "invalid_credentials": "Credenciais inválidas",
+      "corrupted_encryption_key": "Chave de criptografia corrompida, siga os passos em https://github.com/fabiobrolo/aquatemp#invalid-token"
+    }
+  },
+  "selector": {
+    "api_type": {
+      "options": {
+        "aqua_temp": "Aqua Temp",
+        "hi_temp": "HiTemp",
+        "aqua_temp_old": "Aqua Temp (=<1.5.8)"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "api_status": {
+        "name": "Status da API"
+      },
+      "is_fault": {
+        "name": "Falha"
+      },
+      "device_status": {
+        "name": "Status"
+      },
+      "1245226668902080512_power": {
+        "name": "Alimentação"
+      },
+      "1442284873216843776_power": {
+        "name": "Alimentação"
+      },
+      "default_power": {
+        "name": "Alimentação"
+      }
+    },
+    "button": {
+      "measure_temperature": {
+        "name": "Medir temperatura"
+      }
+    },
+    "number": {
+      "pump_interval_p02": {
+        "name": "Intervalo da bomba de água [P02]"
+      },
+      "pump_duration_p03": {
+        "name": "Duração da bomba de água [P03]"
+      }
+    },
+    "select": {
+      "temperature_unit": {
+        "name": "Unidade de temperatura"
+      },
+      "pump_mode_p01": {
+        "name": "Modo da bomba de água [P01]",
+        "state": {
+          "continuous": "Contínuo (0)",
+          "with_compressor": "Com compressor (1)",
+          "intermittent": "Intermitente (2)"
+        }
+      }
+    },
+    "sensor": {
+      "1245226668902080512_01": {
+        "name": "Uso da saída OUT 05 [/01]"
+      },
+      "1245226668902080512_02": {
+        "name": "Uso da saída OUT 06 [/02]"
+      },
+      "1245226668902080512_d01": {
+        "name": "Temperatura de início do degelo [D01]"
+      },
+      "1245226668902080512_d02": {
+        "name": "Temperatura de parada do degelo [D02]"
+      },
+      "1245226668902080512_d03": {
+        "name": "Duração do degelo [D03]"
+      },
+      "1245226668902080512_d04": {
+        "name": "Duração máxima do degelo [D04]"
+      },
+      "1245226668902080512_d05": {
+        "name": "Duração mínima do degelo [D05]"
+      },
+      "1245226668902080512_d06": {
+        "name": "Modo de degelo [D06]"
+      },
+      "1245226668902080512_d07": {
+        "name": "Avaliação inteligente de degelo [D07]"
+      },
+      "1245226668902080512_e01": {
+        "name": "Modo de ajuste da válvula EEV [E01]"
+      },
+      "1245226668902080512_e02": {
+        "name": "Grau alvo de superaquecimento [E02]"
+      },
+      "1245226668902080512_e03": {
+        "name": "Posição original da válvula EEV [E03]"
+      },
+      "1245226668902080512_e04": {
+        "name": "Abertura mínima da válvula EEV [E04]"
+      },
+      "1245226668902080512_e05": {
+        "name": "Posição EEV para degelo [E05]"
+      },
+      "1245226668902080512_g01": {
+        "name": "Temperatura alvo de desinfecção [G01]"
+      },
+      "1245226668902080512_g02": {
+        "name": "Duração da desinfecção [G02]"
+      },
+      "1245226668902080512_g03": {
+        "name": "Horário de início da desinfecção [G03]"
+      },
+      "1245226668902080512_g04": {
+        "name": "Ciclo de desinfecção [G04]"
+      },
+      "1245226668902080512_h01": {
+        "name": "Lembrar estado após queda de energia [H01]"
+      },
+      "1245226668902080512_h03": {
+        "name": "Fonte de aquecimento [H03]"
+      },
+      "1245226668902080512_h07": {
+        "name": "Unidade de temperatura [H07]"
+      },
+      "1245226668902080512_h30": {
+        "name": "Endereço do dispositivo [H30]"
+      },
+      "1245226668902080512_h31": {
+        "name": "Modo de controle inteligente [H31]"
+      },
+      "1245226668902080512_h32": {
+        "name": "Intervalo de envio para nuvem [H32]"
+      },
+      "1245226668902080512_h98": {
+        "name": "Faixa ajustável da temperatura alvo [H98]"
+      },
+      "1245226668902080512_h99": {
+        "name": "Compensação da temperatura exibida [H99]"
+      },
+      "1245226668902080512_n01": {
+        "name": "Sensor de controle da bomba solar [N01]"
+      },
+      "1245226668902080512_n02": {
+        "name": "Tempo máximo bomba solar [N02]"
+      },
+      "1245226668902080512_n03": {
+        "name": "Histerese de temp. bomba solar [N03]"
+      },
+      "1245226668902080512_n04": {
+        "name": "Ativar redução noturna de temperatura [N04]"
+      },
+      "1245226668902080512_n05": {
+        "name": "Início da redução noturna de temp. [N05]"
+      },
+      "1245226668902080512_n06": {
+        "name": "Fim da redução noturna de temp. [N06]"
+      },
+      "1245226668902080512_n07": {
+        "name": "Temp. início redução água solar [N07]"
+      },
+      "1245226668902080512_n08": {
+        "name": "Histerese parada redução água solar [N08]"
+      },
+      "1245226668902080512_n09": {
+        "name": "Temp. liberação água solar [N09]"
+      },
+      "1245226668902080512_n10": {
+        "name": "Temp. desligamento bomba solar [N10]"
+      },
+      "1245226668902080512_n11": {
+        "name": "Modo de operação bomba solar [N11]"
+      },
+      "1245226668902080512_r01": {
+        "name": "Temperatura alvo [R01]"
+      },
+      "1245226668902080512_r03": {
+        "name": "Histerese de partida (sensor inferior) [R03]"
+      },
+      "1245226668902080512_r04": {
+        "name": "Usar R05 como alvo do auxiliar [R04]"
+      },
+      "1245226668902080512_r05": {
+        "name": "Temperatura alvo do auxiliar [R05]"
+      },
+      "1245226668902080512_r06": {
+        "name": "Atraso de partida do aquecedor auxiliar [R06]"
+      },
+      "1245226668902080512_r07": {
+        "name": "Aquecedor auxiliar substitui bomba de calor [R07]"
+      },
+      "1245226668902080512_r08": {
+        "name": "Temp. ambiente para auxiliar substituir bomba [R08]"
+      },
+      "1245226668902080512_r09": {
+        "name": "Temp. ambiente para auxiliar sem atraso [R09]"
+      },
+      "1245226668902080512_r10": {
+        "name": "Temp. ambiente para auxiliar com atraso [R10]"
+      },
+      "1245226668902080512_r12": {
+        "name": "Temp. ambiente para desligamento forçado do compressor [R12]"
+      },
+      "1245226668902080512_r14": {
+        "name": "Temp. alvo da segunda fonte [R14]"
+      },
+      "1245226668902080512_r15": {
+        "name": "Temp. ambiente máxima do compressor [R15]"
+      },
+      "1245226668902080512_r17": {
+        "name": "Usar sensor superior para controlar compressor [R17]"
+      },
+      "1245226668902080512_r18": {
+        "name": "Histerese de partida (sensor superior) [R18]"
+      },
+      "1245226668902080512_r19": {
+        "name": "Alvo 1 temp. ambiente parada compressor [R19]"
+      },
+      "1245226668902080512_r20": {
+        "name": "Alvo 2 temp. ambiente parada compressor [R20]"
+      },
+      "1245226668902080512_o01": {
+        "name": "Compressor [O01]"
+      },
+      "1245226668902080512_o02": {
+        "name": "Aquecedor elétrico [O02]"
+      },
+      "1245226668902080512_o03": {
+        "name": "Válvula de 4 vias [O03]"
+      },
+      "1245226668902080512_o04": {
+        "name": "Ventilador velocidade alta [O04]"
+      },
+      "1245226668902080512_o05": {
+        "name": "Ventilador velocidade baixa [O05]"
+      },
+      "1245226668902080512_o06": {
+        "name": "Bomba reserva/solar [O06]"
+      },
+      "1245226668902080512_o07": {
+        "name": "Posição atual da válvula EEV [O07]"
+      },
+      "1245226668902080512_o08": {
+        "name": "Tempo acumulado do compressor [O08]"
+      },
+      "1245226668902080512_o09": {
+        "name": "Tempo acumulado do aquecedor auxiliar [O09]"
+      },
+      "1245226668902080512_o10": {
+        "name": "Válvula 3 vias [O10]"
+      },
+      "1245226668902080512_o11": {
+        "name": "Válvula misturadora [O11]"
+      },
+      "1245226668902080512_o12": {
+        "name": "Desligamento [O12]"
+      },
+      "1245226668902080512_o13": {
+        "name": "Status online DTU/Wi-Fi [O13]"
+      },
+      "1245226668902080512_o14": {
+        "name": "Degelo [O14]"
+      },
+      "1245226668902080512_o15": {
+        "name": "Estágio de água em alta temperatura [O15]"
+      },
+      "1245226668902080512_s01": {
+        "name": "Chave liga/desliga remota [S01]"
+      },
+      "1245226668902080512_s02": {
+        "name": "Proteção contra superaquecimento [S02]"
+      },
+      "1245226668902080512_s03": {
+        "name": "Pressostato de baixa [S03]"
+      },
+      "1245226668902080512_s04": {
+        "name": "Pressostato de alta [S04]"
+      },
+      "1245226668902080512_s05": {
+        "name": "Acelerar tempo de operação do aquecedor [S05]"
+      },
+      "1245226668902080512_s06": {
+        "name": "Segunda fonte de aquecimento [S06]"
+      },
+      "1245226668902080512_t01": {
+        "name": "Temperatura ambiente [T01]"
+      },
+      "1245226668902080512_t02": {
+        "name": "Temperatura inferior [T02]"
+      },
+      "1245226668902080512_t03": {
+        "name": "Temperatura superior [T03]"
+      },
+      "1245226668902080512_t04": {
+        "name": "Temperatura da bobina [T04]"
+      },
+      "1245226668902080512_t05": {
+        "name": "Temperatura de sucção [T05]"
+      },
+      "1245226668902080512_t06": {
+        "name": "Temperatura solar [T06]"
+      },
+      "1245226668902080512_t10": {
+        "name": "Temperatura exibida no painel/app [T10]"
+      },
+      "1245226668902080512_t11": {
+        "name": "Contagem de proteção fora de faixa [T11]"
+      },
+      "1245226668902080512_t12": {
+        "name": "Ciclos de gravação EEPROM [T12]"
+      },
+      "1442284873216843776_d01": {
+        "name": "Temperatura de início do degelo [D01]"
+      },
+      "1442284873216843776_d01-bar": {
+        "name": "Pressão de início do degelo [D01-bar]"
+      },
+      "1442284873216843776_d02": {
+        "name": "Temperatura de fim do degelo [D02]"
+      },
+      "1442284873216843776_d03": {
+        "name": "Ciclo de degelo [D03]"
+      },
+      "1442284873216843776_d04": {
+        "name": "Duração máxima do degelo [D04]"
+      },
+      "1442284873216843776_d06": {
+        "name": "Tipo de degelo [D06]"
+      },
+      "1442284873216843776_d07": {
+        "name": "Temperatura de saída no degelo [D07]"
+      },
+      "1442284873216843776_d08": {
+        "name": "Desvio temp. bobina no degelo [D08]"
+      },
+      "1442284873216843776_d08-bar": {
+        "name": "Offset de compensação [D08-bar]"
+      },
+      "1442284873216843776_d09": {
+        "name": "Desvio temp. saída no degelo [D09]"
+      },
+      "1442284873216843776_d10": {
+        "name": "Temp. bobina fim de degelo [D10]"
+      },
+      "1442284873216843776_d10-bar": {
+        "name": "Pressão fim de degelo [D10-bar]"
+      },
+      "1442284873216843776_e01": {
+        "name": "Modo da válvula EEV [E01]"
+      },
+      "1442284873216843776_e02": {
+        "name": "Superaquecimento alvo [E02]"
+      },
+      "1442284873216843776_e03": {
+        "name": "Posição inicial EEV [E03]"
+      },
+      "1442284873216843776_e04": {
+        "name": "Posição mínima EEV [E04]"
+      },
+      "1442284873216843776_e05": {
+        "name": "Posição EEV no degelo [E05]"
+      },
+      "1442284873216843776_e06": {
+        "name": "Posição EEV em resfriamento [E06]"
+      },
+      "1442284873216843776_e07": {
+        "name": "Temp. descarga alvo EEV [E07]"
+      },
+      "1442284873216843776_e09": {
+        "name": "Valor proporcional de passo EEV [E09]"
+      },
+      "1442284873216843776_e10": {
+        "name": "Valor integral de passo EEV [E10]"
+      },
+      "1442284873216843776_e11": {
+        "name": "Valor diferencial de passo EEV [E11]"
+      },
+      "1442284873216843776_e12": {
+        "name": "Diferencial compensação superaquecimento [E12]"
+      },
+      "1442284873216843776_f01": {
+        "name": "Velocidade do ventilador [F01]"
+      },
+      "1442284873216843776_f02": {
+        "name": "Temp. máx. ventilador resfriamento [F02]"
+      },
+      "1442284873216843776_f02-bar": {
+        "name": "Pressão alta velocidade resfriamento [F02-bar]"
+      },
+      "1442284873216843776_f03": {
+        "name": "Temp. mín. ventilador resfriamento [F03]"
+      },
+      "1442284873216843776_f03-bar": {
+        "name": "Pressão baixa velocidade resfriamento [F03-bar]"
+      },
+      "1442284873216843776_f04": {
+        "name": "Parada ventilador resfriamento [F04]"
+      },
+      "1442284873216843776_f04-bar": {
+        "name": "Pressão desligamento ventilador resfriamento [F04-bar]"
+      },
+      "1442284873216843776_f05": {
+        "name": "Temp. máx. ventilador aquecimento [F05]"
+      },
+      "1442284873216843776_f05-bar": {
+        "name": "Pressão alta velocidade aquecimento [F05-bar]"
+      },
+      "1442284873216843776_f06": {
+        "name": "Temp. mín. ventilador aquecimento [F06]"
+      },
+      "1442284873216843776_f06-bar": {
+        "name": "Pressão baixa velocidade aquecimento [F06-bar]"
+      },
+      "1442284873216843776_f07": {
+        "name": "Parada ventilador aquecimento [F07]"
+      },
+      "1442284873216843776_f07-bar": {
+        "name": "Pressão desligamento ventilador aquecimento [F07-bar]"
+      },
+      "1442284873216843776_f10": {
+        "name": "Sonda de controle [F10]"
+      },
+      "1442284873216843776_f11": {
+        "name": "Ciclo máximo ventilador em aquecimento [F11]"
+      },
+      "1442284873216843776_f11-r": {
+        "name": "Vel. máx. ventilador em aquecimento [F11-r]"
+      },
+      "1442284873216843776_f12": {
+        "name": "Ciclo do ventilador em resfriamento [F12]"
+      },
+      "1442284873216843776_f12-r": {
+        "name": "Velocidade do ventilador em resfriamento [F12-r]"
+      },
+      "1442284873216843776_f13": {
+        "name": "Ciclo mínimo ventilador em aquecimento [F13]"
+      },
+      "1442284873216843776_f13-r": {
+        "name": "Vel. mín. ventilador em aquecimento [F13-r]"
+      },
+      "1442284873216843776_f14": {
+        "name": "Início do timer silencioso [F14]"
+      },
+      "1442284873216843776_f15": {
+        "name": "Fim do timer silencioso [F15]"
+      },
+      "1442284873216843776_f16": {
+        "name": "Ciclo do ventilador em modo silencioso [F16]"
+      },
+      "1442284873216843776_f16-r": {
+        "name": "Velocidade modo silencioso [F16-r]"
+      },
+      "1442284873216843776_f17": {
+        "name": "Timer modo silencioso [F17]"
+      },
+      "1442284873216843776_f18": {
+        "name": "Velocidade manual do ventilador [F18]"
+      },
+      "1442284873216843776_f19": {
+        "name": "Ciclo nominal do ventilador AC [F19]"
+      },
+      "1442284873216843776_f19-r": {
+        "name": "Velocidade nominal ventilador DC/EC [F19-r]"
+      },
+      "1442284873216843776_f20": {
+        "name": "Detecção PWM / Temp. anticongelamento [F20]"
+      },
+      "1442284873216843776_h01": {
+        "name": "Memória de queda de energia [H01]"
+      },
+      "1442284873216843776_h02": {
+        "name": "Tipo de modo [H02]"
+      },
+      "1442284873216843776_h03": {
+        "name": "Unidade de temperatura [H03]"
+      },
+      "1442284873216843776_h06": {
+        "name": "Frequência mínima em aquecimento [H06]"
+      },
+      "1442284873216843776_h07": {
+        "name": "Frequência mínima em resfriamento [H07]"
+      },
+      "1442284873216843776_h08": {
+        "name": "Frequência máxima em aquecimento [H08]"
+      },
+      "1442284873216843776_h09": {
+        "name": "Frequência máxima em resfriamento [H09]"
+      },
+      "1442284873216843776_h10": {
+        "name": "Tempo de atraso ao desligar [H10]"
+      },
+      "1442284873216843776_h11": {
+        "name": "Tempo de reinício no modo automático [H11]"
+      },
+      "1442284873216843776_h12": {
+        "name": "Tipo de compressor [H12]"
+      },
+      "1442284873216843776_h13": {
+        "name": "Frequência de degelo do compressor [H13]"
+      },
+      "1442284873216843776_h14": {
+        "name": "Ciclo de frequência de 0,2 °C [H14]"
+      },
+      "1442284873216843776_h15": {
+        "name": "Proteção de sobrecorrente do compressor [H15]"
+      },
+      "1442284873216843776_h16": {
+        "name": "Tipo de gás refrigerante [H16]"
+      },
+      "1442284873216843776_h17": {
+        "name": "Comp. partida resfriamento temp. baixa [H17]"
+      },
+      "1442284873216843776_h18": {
+        "name": "Comp. parada resfriamento temp. baixa [H18]"
+      },
+      "1442284873216843776_h19": {
+        "name": "Freq. máx. resfriamento temp. baixa [H19]"
+      },
+      "1442284873216843776_h20": {
+        "name": "Comp. partida resfriamento temp. alta [H20]"
+      },
+      "1442284873216843776_h21": {
+        "name": "Comp. parada resfriamento temp. alta [H21]"
+      },
+      "1442284873216843776_h22": {
+        "name": "Freq. parada resfriamento temp. alta [H22]"
+      },
+      "1442284873216843776_h23": {
+        "name": "Comp. partida aquecimento temp. baixa [H23]"
+      },
+      "1442284873216843776_h24": {
+        "name": "Comp. parada aquecimento temp. baixa [H24]"
+      },
+      "1442284873216843776_h25": {
+        "name": "Freq. máx. aquecimento temp. baixa [H25]"
+      },
+      "1442284873216843776_h26": {
+        "name": "Comp. partida aquecimento temp. alta [H26]"
+      },
+      "1442284873216843776_h27": {
+        "name": "Comp. parada aquecimento temp. alta [H27]"
+      },
+      "1442284873216843776_h28": {
+        "name": "Freq. máx. aquecimento temp. alta [H28]"
+      },
+      "1442284873216843776_h29": {
+        "name": "Valor máx. sensor de pressão [H29]"
+      },
+      "1442284873216843776_h30": {
+        "name": "Valor mín. sensor de pressão [H30]"
+      },
+      "1442284873216843776_h31": {
+        "name": "Temp. ambiente antes da compensação [H31]"
+      },
+      "1442284873216843776_h32": {
+        "name": "Temp. ambiente após compensação [H32]"
+      },
+      "1442284873216843776_h33": {
+        "name": "Frequência máx. compressor silencioso [H33]"
+      },
+      "1442284873216843776_h34": {
+        "name": "Parada do compressor [H34]"
+      },
+      "1442284873216843776_h35": {
+        "name": "Diferencial de temp. da freq. inicial [H35]"
+      },
+      "1442284873216843776_h36": {
+        "name": "Frequência de partida [H36]"
+      },
+      "1442284873216843776_h37": {
+        "name": "Endereço da unidade [H37]"
+      },
+      "1442284873216843776_h38": {
+        "name": "Medição de pressão [H38]"
+      },
+      "1442284873216843776_h39": {
+        "name": "Ressonância 1 [H39]"
+      },
+      "1442284873216843776_h40": {
+        "name": "Ressonância 2 [H40]"
+      },
+      "1442284873216843776_h41": {
+        "name": "Ressonância 3 [H41]"
+      },
+      "1442284873216843776_h42": {
+        "name": "Modo de teste rápido [H42]"
+      },
+      "1442284873216843776_h43": {
+        "name": "Bobina dupla [H43]"
+      },
+      "1442284873216843776_o01": {
+        "name": "Compressor [O01]"
+      },
+      "1442284873216843776_o02": {
+        "name": "Ventilador alta velocidade [O02]"
+      },
+      "1442284873216843776_o03": {
+        "name": "Ventilador baixa velocidade [O03]"
+      },
+      "1442284873216843776_o04": {
+        "name": "Bomba de circulação [O04]"
+      },
+      "1442284873216843776_o05": {
+        "name": "Válvula de 4 vias [O05]"
+      },
+      "1442284873216843776_o06": {
+        "name": "Válvula de expansão [O06]"
+      },
+      "1442284873216843776_o07": {
+        "name": "Frequência de saída do compressor [O07]"
+      },
+      "1442284873216843776_o08": {
+        "name": "Corrente do compressor [O08]"
+      },
+      "1442284873216843776_o09": {
+        "name": "Temperatura IPM [O09]"
+      },
+      "1442284873216843776_p04": {
+        "name": "Antecipação da bomba [P04]"
+      },
+      "1442284873216843776_p05": {
+        "name": "Filtração da bomba de água [P05]"
+      },
+      "1442284873216843776_p06": {
+        "name": "Início filtração bomba 1 [P06]"
+      },
+      "1442284873216843776_p07": {
+        "name": "Fim filtração bomba 1 [P07]"
+      },
+      "1442284873216843776_p08": {
+        "name": "Início filtração bomba 2 [P08]"
+      },
+      "1442284873216843776_p09": {
+        "name": "Fim filtração bomba 2 [P09]"
+      },
+      "1442284873216843776_r01": {
+        "name": "Temperatura alvo resfriamento [R01]"
+      },
+      "1442284873216843776_r02": {
+        "name": "Temperatura alvo aquecimento [R02]"
+      },
+      "1442284873216843776_r03": {
+        "name": "Temperatura alvo automático [R03]"
+      },
+      "1442284873216843776_r04": {
+        "name": "Diferencial de temperatura [R04]"
+      },
+      "1442284873216843776_r05": {
+        "name": "Diferencial de temp. para desligar [R05]"
+      },
+      "1442284873216843776_r08": {
+        "name": "Temperatura mínima resfriamento [R08]"
+      },
+      "1442284873216843776_r09": {
+        "name": "Temperatura máxima resfriamento [R09]"
+      },
+      "1442284873216843776_r10": {
+        "name": "Temperatura mínima aquecimento [R10]"
+      },
+      "1442284873216843776_r11": {
+        "name": "Temperatura máxima aquecimento [R11]"
+      },
+      "1442284873216843776_r12": {
+        "name": "Diferencial de temp. para ligar [R12]"
+      },
+      "1442284873216843776_s01": {
+        "name": "Pressostato de alta [S01]"
+      },
+      "1442284873216843776_s02": {
+        "name": "Pressostato de baixa [S02]"
+      },
+      "1442284873216843776_s03": {
+        "name": "Sensor de fluxo [S03]"
+      },
+      "1442284873216843776_s04": {
+        "name": "Chave remota [S04]"
+      },
+      "1442284873216843776_s05": {
+        "name": "Chave de modo [S05]"
+      },
+      "1442284873216843776_s06": {
+        "name": "Chave mestre/escravo [S06]"
+      },
+      "1442284873216843776_t1": {
+        "name": "Temperatura de sucção [T1]"
+      },
+      "1442284873216843776_t2": {
+        "name": "Temperatura da água de entrada [T2]"
+      },
+      "1442284873216843776_t3": {
+        "name": "Temperatura da água de saída [T3]"
+      },
+      "1442284873216843776_t4": {
+        "name": "Temperatura da bobina 1 [T4]"
+      },
+      "1442284873216843776_t5": {
+        "name": "Temperatura ambiente [T5]"
+      },
+      "1442284873216843776_t6": {
+        "name": "Temperatura de descarga [T6]"
+      },
+      "1442284873216843776_t7": {
+        "name": "Corrente do compressor [T7]"
+      },
+      "1442284873216843776_t8": {
+        "name": "Saída do ventilador AC [T8]"
+      },
+      "1442284873216843776_t9": {
+        "name": "Entrada de vazão [T9]"
+      },
+      "1442284873216843776_t10": {
+        "name": "Sensor de pressão [T10]"
+      },
+      "1442284873216843776_t11": {
+        "name": "Superaquecimento [T11]"
+      },
+      "1442284873216843776_t12": {
+        "name": "Velocidade alvo do ventilador [T12]"
+      },
+      "1442284873216843776_t13": {
+        "name": "Superaquecimento após compensação [T13]"
+      },
+      "1442284873216843776_t14": {
+        "name": "Tensão AC da placa inversora [T14]"
+      },
+      "1442284873216843776_t15": {
+        "name": "Temperatura anticongelamento [T15]"
+      },
+      "1442284873216843776_t16": {
+        "name": "Velocidade do ventilador EC [T16]"
+      },
+      "1442284873216843776_t17": {
+        "name": "Velocidade do ventilador 1 [T17]"
+      },
+      "1442284873216843776_t18": {
+        "name": "Velocidade do ventilador 2 [T18]"
+      },
+      "1442284873216843776_t19": {
+        "name": "Tensão do barramento [T19]"
+      },
+      "1442284873216843776_t20": {
+        "name": "Proteção de limite de frequência [T20]"
+      },
+      "1442284873216843776_t21": {
+        "name": "Proteção de redução de frequência [T21]"
+      },
+      "1442284873216843776_t22": {
+        "name": "Temperatura da bobina 2 [T22]"
+      },
+      "1442284873216843776_t23": {
+        "name": "Estado da placa inversora 1 [T23]"
+      },
+      "1442284873216843776_t24": {
+        "name": "Estado da placa inversora 2 [T24]"
+      },
+      "1442284873216843776_t25": {
+        "name": "Estado da placa inversora 3 [T25]"
+      },
+      "1442284873216843776_t26": {
+        "name": "Estado da placa inversora 4 [T26]"
+      },
+      "1442284873216843776_t27": {
+        "name": "Estado da placa inversora 5 [T27]"
+      },
+      "1442284873216843776_t28": {
+        "name": "Frequência alvo [T28]"
+      },
+      "default_d01": {
+        "name": "Temperatura de início do degelo [D01]"
+      },
+      "default_d01-bar": {
+        "name": "Pressão de início do degelo [D01-bar]"
+      },
+      "default_d02": {
+        "name": "Temperatura de fim do degelo [D02]"
+      },
+      "default_d03": {
+        "name": "Ciclo de degelo [D03]"
+      },
+      "default_d04": {
+        "name": "Duração máxima do degelo [D04]"
+      },
+      "default_d06": {
+        "name": "Tipo de degelo [D06]"
+      },
+      "default_d07": {
+        "name": "Temperatura de saída no degelo [D07]"
+      },
+      "default_d08": {
+        "name": "Desvio temp. bobina no degelo [D08]"
+      },
+      "default_d08-bar": {
+        "name": "Offset de compensação [D08-bar]"
+      },
+      "default_d09": {
+        "name": "Desvio temp. saída no degelo [D09]"
+      },
+      "default_d10": {
+        "name": "Temp. bobina fim de degelo [D10]"
+      },
+      "default_d10-bar": {
+        "name": "Pressão fim de degelo [D10-bar]"
+      },
+      "default_e01": {
+        "name": "Modo da válvula EEV [E01]"
+      },
+      "default_e02": {
+        "name": "Superaquecimento alvo [E02]"
+      },
+      "default_e03": {
+        "name": "Posição inicial EEV [E03]"
+      },
+      "default_e04": {
+        "name": "Posição mínima EEV [E04]"
+      },
+      "default_e05": {
+        "name": "Posição EEV no degelo [E05]"
+      },
+      "default_e06": {
+        "name": "Posição EEV em resfriamento [E06]"
+      },
+      "default_e07": {
+        "name": "Temp. descarga alvo EEV [E07]"
+      },
+      "default_e09": {
+        "name": "Valor proporcional de passo EEV [E09]"
+      },
+      "default_e10": {
+        "name": "Valor integral de passo EEV [E10]"
+      },
+      "default_e11": {
+        "name": "Valor diferencial de passo EEV [E11]"
+      },
+      "default_e12": {
+        "name": "Diferencial compensação superaquecimento [E12]"
+      },
+      "default_f01": {
+        "name": "Velocidade do ventilador [F01]"
+      },
+      "default_f02": {
+        "name": "Temp. máx. ventilador resfriamento [F02]"
+      },
+      "default_f02-bar": {
+        "name": "Pressão alta velocidade resfriamento [F02-bar]"
+      },
+      "default_f03": {
+        "name": "Temp. mín. ventilador resfriamento [F03]"
+      },
+      "default_f03-bar": {
+        "name": "Pressão baixa velocidade resfriamento [F03-bar]"
+      },
+      "default_f04": {
+        "name": "Parada ventilador resfriamento [F04]"
+      },
+      "default_f04-bar": {
+        "name": "Pressão desligamento ventilador resfriamento [F04-bar]"
+      },
+      "default_f05": {
+        "name": "Temp. máx. ventilador aquecimento [F05]"
+      },
+      "default_f05-bar": {
+        "name": "Pressão alta velocidade aquecimento [F05-bar]"
+      },
+      "default_f06": {
+        "name": "Temp. mín. ventilador aquecimento [F06]"
+      },
+      "default_f06-bar": {
+        "name": "Pressão baixa velocidade aquecimento [F06-bar]"
+      },
+      "default_f07": {
+        "name": "Parada ventilador aquecimento [F07]"
+      },
+      "default_f07-bar": {
+        "name": "Pressão desligamento ventilador aquecimento [F07-bar]"
+      },
+      "default_f10": {
+        "name": "Sonda de controle [F10]"
+      },
+      "default_f11": {
+        "name": "Ciclo máximo ventilador em aquecimento [F11]"
+      },
+      "default_f11-r": {
+        "name": "Vel. máx. ventilador em aquecimento [F11-r]"
+      },
+      "default_f12": {
+        "name": "Ciclo do ventilador em resfriamento [F12]"
+      },
+      "default_f12-r": {
+        "name": "Velocidade do ventilador em resfriamento [F12-r]"
+      },
+      "default_f13": {
+        "name": "Ciclo mínimo ventilador em aquecimento [F13]"
+      },
+      "default_f13-r": {
+        "name": "Vel. mín. ventilador em aquecimento [F13-r]"
+      },
+      "default_f14": {
+        "name": "Início do timer silencioso [F14]"
+      },
+      "default_f15": {
+        "name": "Fim do timer silencioso [F15]"
+      },
+      "default_f16": {
+        "name": "Ciclo do ventilador em modo silencioso [F16]"
+      },
+      "default_f16-r": {
+        "name": "Velocidade modo silencioso [F16-r]"
+      },
+      "default_f17": {
+        "name": "Timer modo silencioso [F17]"
+      },
+      "default_f18": {
+        "name": "Velocidade manual do ventilador [F18]"
+      },
+      "default_f19": {
+        "name": "Ciclo nominal do ventilador AC [F19]"
+      },
+      "default_f19-r": {
+        "name": "Velocidade nominal ventilador DC/EC [F19-r]"
+      },
+      "default_f20": {
+        "name": "Detecção PWM / Temp. anticongelamento [F20]"
+      },
+      "default_h01": {
+        "name": "Memória de queda de energia [H01]"
+      },
+      "default_h02": {
+        "name": "Tipo de modo [H02]"
+      },
+      "default_h03": {
+        "name": "Unidade de temperatura [H03]"
+      },
+      "default_h06": {
+        "name": "Frequência mínima em aquecimento [H06]"
+      },
+      "default_h07": {
+        "name": "Frequência mínima em resfriamento [H07]"
+      },
+      "default_h08": {
+        "name": "Frequência máxima em aquecimento [H08]"
+      },
+      "default_h09": {
+        "name": "Frequência máxima em resfriamento [H09]"
+      },
+      "default_h10": {
+        "name": "Tempo de atraso ao desligar [H10]"
+      },
+      "default_h11": {
+        "name": "Tempo de reinício no modo automático [H11]"
+      },
+      "default_h12": {
+        "name": "Tipo de compressor [H12]"
+      },
+      "default_h13": {
+        "name": "Frequência de degelo do compressor [H13]"
+      },
+      "default_h14": {
+        "name": "Ciclo de frequência de 0,2 °C [H14]"
+      },
+      "default_h15": {
+        "name": "Proteção de sobrecorrente do compressor [H15]"
+      },
+      "default_h16": {
+        "name": "Tipo de gás refrigerante [H16]"
+      },
+      "default_h17": {
+        "name": "Comp. partida resfriamento temp. baixa [H17]"
+      },
+      "default_h18": {
+        "name": "Comp. parada resfriamento temp. baixa [H18]"
+      },
+      "default_h19": {
+        "name": "Freq. máx. resfriamento temp. baixa [H19]"
+      },
+      "default_h20": {
+        "name": "Comp. partida resfriamento temp. alta [H20]"
+      },
+      "default_h21": {
+        "name": "Comp. parada resfriamento temp. alta [H21]"
+      },
+      "default_h22": {
+        "name": "Freq. parada resfriamento temp. alta [H22]"
+      },
+      "default_h23": {
+        "name": "Comp. partida aquecimento temp. baixa [H23]"
+      },
+      "default_h24": {
+        "name": "Comp. parada aquecimento temp. baixa [H24]"
+      },
+      "default_h25": {
+        "name": "Freq. máx. aquecimento temp. baixa [H25]"
+      },
+      "default_h26": {
+        "name": "Comp. partida aquecimento temp. alta [H26]"
+      },
+      "default_h27": {
+        "name": "Comp. parada aquecimento temp. alta [H27]"
+      },
+      "default_h28": {
+        "name": "Freq. máx. aquecimento temp. alta [H28]"
+      },
+      "default_h29": {
+        "name": "Valor máx. sensor de pressão [H29]"
+      },
+      "default_h30": {
+        "name": "Valor mín. sensor de pressão [H30]"
+      },
+      "default_h31": {
+        "name": "Temp. ambiente antes da compensação [H31]"
+      },
+      "default_h32": {
+        "name": "Temp. ambiente após compensação [H32]"
+      },
+      "default_h33": {
+        "name": "Frequência máx. compressor silencioso [H33]"
+      },
+      "default_h34": {
+        "name": "Parada do compressor [H34]"
+      },
+      "default_h35": {
+        "name": "Diferencial de temp. da freq. inicial [H35]"
+      },
+      "default_h36": {
+        "name": "Frequência de partida [H36]"
+      },
+      "default_h37": {
+        "name": "Endereço da unidade [H37]"
+      },
+      "default_h38": {
+        "name": "Medição de pressão [H38]"
+      },
+      "default_h39": {
+        "name": "Ressonância 1 [H39]"
+      },
+      "default_h40": {
+        "name": "Ressonância 2 [H40]"
+      },
+      "default_h41": {
+        "name": "Ressonância 3 [H41]"
+      },
+      "default_h42": {
+        "name": "Modo de teste rápido [H42]"
+      },
+      "default_h43": {
+        "name": "Bobina dupla [H43]"
+      },
+      "default_o01": {
+        "name": "Compressor [O01]"
+      },
+      "default_o02": {
+        "name": "Ventilador alta velocidade [O02]"
+      },
+      "default_o03": {
+        "name": "Ventilador baixa velocidade [O03]"
+      },
+      "default_o04": {
+        "name": "Bomba de circulação [O04]"
+      },
+      "default_o05": {
+        "name": "Válvula de 4 vias [O05]"
+      },
+      "default_o06": {
+        "name": "Válvula de expansão [O06]"
+      },
+      "default_o07": {
+        "name": "Frequência de saída do compressor [O07]"
+      },
+      "default_o08": {
+        "name": "Corrente do compressor [O08]"
+      },
+      "default_o09": {
+        "name": "Temperatura IPM [O09]"
+      },
+      "default_p04": {
+        "name": "Antecipação da bomba [P04]"
+      },
+      "default_p05": {
+        "name": "Filtração da bomba de água [P05]"
+      },
+      "default_p06": {
+        "name": "Início filtração bomba 1 [P06]"
+      },
+      "default_p07": {
+        "name": "Fim filtração bomba 1 [P07]"
+      },
+      "default_p08": {
+        "name": "Início filtração bomba 2 [P08]"
+      },
+      "default_p09": {
+        "name": "Fim filtração bomba 2 [P09]"
+      },
+      "default_r01": {
+        "name": "Temperatura alvo resfriamento [R01]"
+      },
+      "default_r02": {
+        "name": "Temperatura alvo aquecimento [R02]"
+      },
+      "default_r03": {
+        "name": "Temperatura alvo automático [R03]"
+      },
+      "default_r04": {
+        "name": "Diferencial de temperatura [R04]"
+      },
+      "default_r05": {
+        "name": "Diferencial de temp. para desligar [R05]"
+      },
+      "default_r08": {
+        "name": "Temperatura mínima resfriamento [R08]"
+      },
+      "default_r09": {
+        "name": "Temperatura máxima resfriamento [R09]"
+      },
+      "default_r10": {
+        "name": "Temperatura mínima aquecimento [R10]"
+      },
+      "default_r11": {
+        "name": "Temperatura máxima aquecimento [R11]"
+      },
+      "default_r12": {
+        "name": "Diferencial de temp. para ligar [R12]"
+      },
+      "default_s01": {
+        "name": "Pressostato de alta [S01]"
+      },
+      "default_s02": {
+        "name": "Pressostato de baixa [S02]"
+      },
+      "default_s03": {
+        "name": "Sensor de fluxo [S03]"
+      },
+      "default_s04": {
+        "name": "Chave remota [S04]"
+      },
+      "default_s05": {
+        "name": "Chave de modo [S05]"
+      },
+      "default_s06": {
+        "name": "Chave mestre/escravo [S06]"
+      },
+      "default_t01": {
+        "name": "Temperatura de sucção [T01]"
+      },
+      "default_t02": {
+        "name": "Temperatura da água de entrada [T02]"
+      },
+      "default_t03": {
+        "name": "Temperatura da água de saída [T03]"
+      },
+      "default_t04": {
+        "name": "Temperatura da bobina 1 [T04]"
+      },
+      "default_t05": {
+        "name": "Temperatura ambiente [T05]"
+      },
+      "default_t06": {
+        "name": "Temperatura de descarga [T06]"
+      },
+      "default_t07": {
+        "name": "Corrente do compressor [T07]"
+      },
+      "default_t08": {
+        "name": "Saída do ventilador AC [T08]"
+      },
+      "default_t09": {
+        "name": "Entrada de vazão [T09]"
+      },
+      "default_t10": {
+        "name": "Sensor de pressão [T10]"
+      },
+      "default_t11": {
+        "name": "Superaquecimento [T11]"
+      },
+      "default_t12": {
+        "name": "Velocidade alvo do ventilador [T12]"
+      },
+      "default_t13": {
+        "name": "Superaquecimento após compensação [T13]"
+      },
+      "default_t14": {
+        "name": "Tensão AC da placa inversora [T14]"
+      },
+      "default_t15": {
+        "name": "Temperatura anticongelamento [T15]"
+      },
+      "default_t16": {
+        "name": "Velocidade do ventilador EC [T16]"
+      },
+      "default_t17": {
+        "name": "Velocidade do ventilador 1 [T17]"
+      },
+      "default_t18": {
+        "name": "Velocidade do ventilador 2 [T18]"
+      },
+      "default_t19": {
+        "name": "Tensão do barramento [T19]"
+      },
+      "default_t20": {
+        "name": "Proteção de limite de frequência [T20]"
+      },
+      "default_t21": {
+        "name": "Proteção de redução de frequência [T21]"
+      },
+      "default_t22": {
+        "name": "Temperatura da bobina 2 [T22]"
+      },
+      "default_t23": {
+        "name": "Estado da placa inversora 1 [T23]"
+      },
+      "default_t24": {
+        "name": "Estado da placa inversora 2 [T24]"
+      },
+      "default_t25": {
+        "name": "Estado da placa inversora 3 [T25]"
+      },
+      "default_t26": {
+        "name": "Estado da placa inversora 4 [T26]"
+      },
+      "default_t27": {
+        "name": "Estado da placa inversora 5 [T27]"
+      },
+      "default_t28": {
+        "name": "Frequência alvo [T28]"
+      }
+    }
+  }
+}
