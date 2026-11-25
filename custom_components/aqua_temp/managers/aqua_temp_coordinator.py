@@ -26,6 +26,10 @@ from .aqua_temp_config_manager import AquaTempConfigManager
 
 _LOGGER = logging.getLogger(__name__)
 
+# Linked-Go cloud caches writes optimistically for ~8-15s before MCU telemetry overwrites it
+TEMP_VERIFY_DELAY_SECONDS = 16
+TEMP_VERIFY_MAX_RETRIES = 2
+
 
 class AquaTempCoordinator(DataUpdateCoordinator):
     """My custom coordinator."""
@@ -47,6 +51,8 @@ class AquaTempCoordinator(DataUpdateCoordinator):
         self._api = AquaTempAPI(hass, config_manager)
         self._config_manager = config_manager
         self._measure_tasks: dict[str, asyncio.Task] = {}
+        self._temp_verify_tasks: dict[str, asyncio.Task] = {}
+        self._pending_target_temps: dict[str, float] = {}
 
     @property
     def api_status(self):
@@ -155,14 +161,74 @@ class AquaTempCoordinator(DataUpdateCoordinator):
         return self._config_manager.get_temperature_unit(device_code)
 
     async def set_hvac_mode(self, device_code: str, hvac_mode: HVACMode):
-        await self._api.set_hvac_mode(device_code, hvac_mode)
+        pending_temp = (
+            self._pending_target_temps.get(device_code)
+            if hvac_mode != HVACMode.OFF
+            else None
+        )
+        await self._api.set_hvac_mode(
+            device_code, hvac_mode, target_temperature=pending_temp
+        )
+        if pending_temp is not None:
+            self._schedule_temp_verify(device_code, pending_temp)
         await asyncio.sleep(1)
         await self.async_request_refresh()
 
     async def set_temperature(self, device_code: str, temperature: float):
         await self._api.set_temperature(device_code, temperature)
+        self.async_update_listeners()
+        self._schedule_temp_verify(device_code, temperature)
         await asyncio.sleep(1)
         await self.async_request_refresh()
+
+    def _cancel_temp_verify(self, device_code: str):
+        task = self._temp_verify_tasks.pop(device_code, None)
+        self._pending_target_temps.pop(device_code, None)
+        if task and not task.done():
+            task.cancel()
+
+    def _schedule_temp_verify(self, device_code: str, expected_temp: float):
+        self._cancel_temp_verify(device_code)
+        self._pending_target_temps[device_code] = expected_temp
+        self._temp_verify_tasks[device_code] = self.hass.async_create_task(
+            self._verify_temperature(device_code, expected_temp)
+        )
+
+    async def _verify_temperature(self, device_code: str, expected_temp: float):
+        """Re-read after the cloud cache window and retry if the MCU silently dropped the write."""
+        try:
+            for attempt in range(TEMP_VERIFY_MAX_RETRIES + 1):
+                await asyncio.sleep(TEMP_VERIFY_DELAY_SECONDS)
+                await self.async_refresh()
+
+                actual = self.get_device_target_temperature(device_code)
+                if actual is None or abs(actual - expected_temp) < 0.05:
+                    return
+
+                if attempt >= TEMP_VERIFY_MAX_RETRIES:
+                    _LOGGER.warning(
+                        f"Target temperature for {device_code} remained {actual} "
+                        f"after {TEMP_VERIFY_MAX_RETRIES} retries (expected {expected_temp})"
+                    )
+                    return
+
+                _LOGGER.warning(
+                    f"Target temperature for {device_code} reverted to {actual} "
+                    f"(expected {expected_temp}); retrying write "
+                    f"({attempt + 1}/{TEMP_VERIFY_MAX_RETRIES})"
+                )
+                await self._api.set_temperature(device_code, expected_temp)
+                self.async_update_listeners()
+        except asyncio.CancelledError:
+            raise
+        except Exception as err:
+            _LOGGER.warning(
+                f"Failed to verify target temperature for {device_code}: {err}"
+            )
+        finally:
+            if self._temp_verify_tasks.get(device_code) is asyncio.current_task():
+                self._temp_verify_tasks.pop(device_code, None)
+                self._pending_target_temps.pop(device_code, None)
 
     async def set_fan_mode(self, device_code: str, fan_mode):
         await self._api.set_fan_mode(device_code, fan_mode)
@@ -202,12 +268,17 @@ class AquaTempCoordinator(DataUpdateCoordinator):
         return DEFAULT_CIRCULATION_DURATION
 
     async def cancel_tasks(self):
-        for task in list(self._measure_tasks.values()):
+        all_tasks = list(self._measure_tasks.values()) + list(
+            self._temp_verify_tasks.values()
+        )
+        for task in all_tasks:
             if not task.done():
                 task.cancel()
-        if self._measure_tasks:
-            await asyncio.gather(*self._measure_tasks.values(), return_exceptions=True)
+        if all_tasks:
+            await asyncio.gather(*all_tasks, return_exceptions=True)
         self._measure_tasks.clear()
+        self._temp_verify_tasks.clear()
+        self._pending_target_temps.clear()
 
     async def measure_temperature(self, device_code: str):
         """Circulate water with minimum setpoint so the heat pump reads pool temperature."""
@@ -231,6 +302,7 @@ class AquaTempCoordinator(DataUpdateCoordinator):
             await self.async_request_refresh()
             return
 
+        self._cancel_temp_verify(device_code)
         self._measure_tasks[device_code] = self.hass.async_create_task(
             self._run_measure_temperature(device_code)
         )

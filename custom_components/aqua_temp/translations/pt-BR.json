@@ -68,6 +68,9 @@
     "button": {
       "measure_temperature": {
         "name": "Medir temperatura"
+      },
+      "refresh_data": {
+        "name": "Atualizar dados"
       }
     },
     "number": {
@@ -76,6 +79,9 @@
       },
       "pump_duration_p03": {
         "name": "Duração da bomba de água [P03]"
+      },
+      "heating_target_r02": {
+        "name": "Temperatura Alvo do Aquecimento [R02]"
       }
     },
     "select": {
@@ -692,9 +698,6 @@
       },
       "1442284873216843776_r01": {
         "name": "Temperatura alvo resfriamento [R01]"
-      },
-      "1442284873216843776_r02": {
-        "name": "Temperatura alvo aquecimento [R02]"
       },
       "1442284873216843776_r03": {
         "name": "Temperatura alvo automático [R03]"

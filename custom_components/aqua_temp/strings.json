@@ -68,6 +68,9 @@
     "button": {
       "measure_temperature": {
         "name": "Measure temperature"
+      },
+      "refresh_data": {
+        "name": "Refresh data"
       }
     },
     "number": {
@@ -76,6 +79,9 @@
       },
       "pump_duration_p03": {
         "name": "Water pump duration [P03]"
+      },
+      "heating_target_r02": {
+        "name": "Heating target temperature [R02]"
       }
     },
     "select": {
@@ -692,9 +698,6 @@
       },
       "1442284873216843776_r01": {
         "name": "Cooling set [R01]"
-      },
-      "1442284873216843776_r02": {
-        "name": "Heating set [R02]"
       },
       "1442284873216843776_r03": {
         "name": "Auto. Set [R03]"

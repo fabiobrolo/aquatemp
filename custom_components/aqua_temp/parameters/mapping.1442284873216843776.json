@@ -1,7 +1,7 @@
 {
   "mode": "Mode",
   "power": "Power",
-  "temperature": "Set_Temp",
+  "temperature": "R02",
   "fan": "Manual-mute",
   "current_temperature": "T2",
   "hvac_modes": {

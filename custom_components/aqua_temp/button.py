@@ -6,6 +6,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .common.base_entity import BaseEntity, async_setup_base_entry
+from .common.consts import BUTTON_REFRESH_DATA
 from .common.entity_descriptions import AquaTempButtonEntityDescription
 from .managers.aqua_temp_coordinator import AquaTempCoordinator
 
@@ -37,4 +38,9 @@ class AquaTempButtonEntity(BaseEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Handle button press."""
+        if self.entity_description.key == BUTTON_REFRESH_DATA:
+            # Force immediate cloud poll without waiting for the 10s debouncer
+            await self.local_coordinator.async_refresh()
+            return
+
         await self.local_coordinator.measure_temperature(self._device_code)

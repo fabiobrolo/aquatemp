@@ -43,7 +43,7 @@ from ..common.endpoints import Endpoints
 from .aqua_temp_config_manager import AquaTempConfigManager
 
 _LOGGER = logging.getLogger(__name__)
-API_REQUEST_TIMEOUT = ClientTimeout(total=20, connect=10)
+API_REQUEST_TIMEOUT = ClientTimeout(total=25, connect=15)
 
 
 class AquaTempAPI:
@@ -118,7 +118,13 @@ class AquaTempAPI:
             _LOGGER.debug("No token available, Login AquaTemp API and fetching devices")
             await self._login()
 
-            await self._load_devices()
+        if not self._devices:
+            try:
+                await self._load_devices()
+            except Exception:
+                # Clear token so retries never get stuck with a valid token and empty device list
+                self.set_token()
+                raise
 
     async def terminate(self):
         if self._hass is None:
@@ -317,13 +323,14 @@ class AquaTempAPI:
         param_device_code = self._config_manager.get_api_param(APIParam.DeviceCode)
         param_protocol_code = self._config_manager.get_api_param(APIParam.ProtocolCode)
 
-        set_target_temp = {
-            param_device_code: device_code,
-            param_protocol_code: set_temp_pc_key,
-            DEVICE_CONTROL_VALUE: target_temperature,
-        }
+        if target_temperature is not None and set_temp_pc_key:
+            set_target_temp = {
+                param_device_code: device_code,
+                param_protocol_code: set_temp_pc_key,
+                DEVICE_CONTROL_VALUE: target_temperature,
+            }
 
-        control_params.append(set_target_temp)
+            control_params.append(set_target_temp)
 
         if mode_pc_key != set_temp_pc_key:
             set_mode = {
@@ -337,6 +344,13 @@ class AquaTempAPI:
         request_data = {DEVICE_CONTROL_PARAM: control_params}
 
         await self._perform_action(request_data, mode_pc_key)
+
+        if (
+            device_code in self._devices
+            and target_temperature is not None
+            and set_temp_pc_key
+        ):
+            self._devices[device_code][set_temp_pc_key] = str(target_temperature)
 
     async def set_fan_mode(self, device_code: str, fan_mode):
         """Set new target fan mode."""
@@ -607,13 +621,21 @@ class AquaTempAPI:
 
     async def _load_devices(self):
         param_object_result = self._config_manager.get_api_param(APIParam.ObjectResult)
+        last_error: Exception | None = None
 
         for device_list_url in DEVICE_LISTS:
             request_data = self._device_list_request_data[device_list_url]
 
-            device_code_response = await self._post_request(
-                device_list_url, request_data
-            )
+            try:
+                device_code_response = await self._post_request(
+                    device_list_url, request_data
+                )
+            except Exception as ex:
+                last_error = ex
+                _LOGGER.warning(
+                    f"Device discovery failed for {device_list_url}: {ex}"
+                )
+                continue
 
             devices = device_code_response.get(param_object_result, [])
 
@@ -637,6 +659,8 @@ class AquaTempAPI:
                 _LOGGER.info(f"Discovering device {device_code}")
 
         if not self._devices:
+            if last_error is not None:
+                raise last_error
             await self._load_devices_unfiltered(param_object_result)
 
     async def _load_devices_unfiltered(self, param_object_result):
@@ -697,8 +721,13 @@ class AquaTempAPI:
         if endpoint == Endpoints.DeviceControl:
             _LOGGER.info(f"Sending request to control device, Data: {data}")
 
-        # Close each connection so 5-minute idle NAT timeouts never stall control commands
-        headers = {**self._headers, "Connection": "close"}
+        # Reuse keep-alive within a request burst, then close after DeviceStatus (last call of each poll)
+        # so sockets never sit idle across the 5-minute poll interval and trigger NAT stalls
+        headers = (
+            {**self._headers, "Connection": "close"}
+            if endpoint == Endpoints.DeviceStatus
+            else self._headers
+        )
         async with self._session.post(
             url,
             headers=headers,

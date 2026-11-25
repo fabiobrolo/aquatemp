@@ -118,10 +118,14 @@ def _install_ha_stubs():
         def __init__(self, hass, logger, name, update_interval, update_method):
             self.hass = hass
             self.refresh_count = 0
+            self.immediate_refresh_count = 0
             self.listener_updates = 0
 
         async def async_request_refresh(self):
             self.refresh_count += 1
+
+        async def async_refresh(self):
+            self.immediate_refresh_count += 1
 
         def async_update_listeners(self):
             self.listener_updates += 1
@@ -272,6 +276,7 @@ class FakeAPI:
         )
         self.fail_protocol_code = fail_protocol_code
         self.login_details = {}
+        self.last_hvac_target = None
 
     @property
     def devices(self):
@@ -311,9 +316,11 @@ class FakeAPI:
     async def set_temperature(self, dc, temp):
         self.events.append(("set_temperature", temp))
         self.target = temp
+        self.device_data["R02"] = str(temp)
 
     async def set_hvac_mode(self, dc, mode, target_temperature=None):
         self.events.append(("set_hvac_mode", mode))
+        self.last_hvac_target = target_temperature
         if target_temperature is not None:
             self.target = target_temperature
         self.power = mode != HVACMode.OFF
@@ -595,8 +602,42 @@ async def run_tests():
 
     assert connects == [None], f"Token was not cleared before retry: {connects}"
     assert len(post_calls) == 2
-    assert post_calls[0]["headers"].get("Connection") == "close"
+    assert post_calls[0]["headers"].get("Connection") is None
     assert post_calls[0]["timeout"] == API_REQUEST_TIMEOUT
+
+    # 9b. DeviceStatus closes connection after poll burst; _connect clears token if _load_devices fails
+    from custom_components.aqua_temp.common.endpoints import Endpoints
+
+    await api._post_request(Endpoints.DeviceStatus, {"deviceCode": "dev1"})
+    assert post_calls[-1]["headers"].get("Connection") == "close"
+
+    api2 = AquaTempAPI(None, cm)
+    login_count = 0
+
+    async def fake_login2():
+        nonlocal login_count
+        login_count += 1
+        api2.set_token("tok")
+
+    load_calls = 0
+
+    async def flaky_load_devices():
+        nonlocal load_calls
+        load_calls += 1
+        if load_calls == 1:
+            raise TimeoutError("shared list timeout")
+        api2._devices["dev1"] = {"deviceCode": "dev1"}
+
+    api2._login = fake_login2
+    api2._load_devices = flaky_load_devices
+    try:
+        await api2._connect()
+        assert False, "Expected TimeoutError on first _connect"
+    except TimeoutError:
+        pass
+    assert api2._token is None, "Token must be cleared when _load_devices fails"
+    await api2._connect()
+    assert login_count == 2 and load_calls == 2 and "dev1" in api2._devices
 
     # 10. Local timer switches & times for PC1001 (1510/1511/1512, 1509/1513/1514, H05/F15/F17)
     timer_data = {
@@ -728,6 +769,170 @@ async def run_tests():
         "F15",
         "F17",
     ]
+
+    # 11. Editable R02 heating target temperature number entity (0.5 C step, PC1001 only)
+    coord = _make_coordinator(device_data={"R02": "29.0"})
+    r02_desc = AquaTempNumberEntityDescription(
+        key="R02",
+        native_min_value=15.0,
+        native_max_value=40.0,
+        native_step=0.5,
+        translation_key="heating_target_r02",
+    )
+    r02_ent = AquaTempNumberEntity(r02_desc, coord, "dev1")
+    assert r02_ent._attr_native_value == 29.0
+    prev_listeners = coord.listener_updates
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await r02_ent.async_set_native_value(29.3)  # snaps to 29.5
+        await r02_ent.async_set_native_value(50.0)  # clamps to 40.0
+        await r02_ent.async_set_native_value(10.0)  # clamps to 15.0
+        await coord.cancel_tasks()
+    assert coord.listener_updates == prev_listeners + 3
+    r02_ent._handle_coordinator_update()
+    assert r02_ent._attr_native_value == 15.0
+    assert coord._api.events[-3:] == [
+        ("set_temperature", 29.5),
+        ("set_temperature", 40.0),
+        ("set_temperature", 15.0),
+    ]
+    pc1001_r02 = [
+        item
+        for item in json.loads(
+            (
+                REPO_ROOT
+                / "custom_components"
+                / "aqua_temp"
+                / "parameters"
+                / "entity_description.1442284873216843776.json"
+            ).read_text(encoding="utf-8")
+        )
+        if item.get("key") == "R02"
+    ]
+    assert len(pc1001_r02) == 1 and pc1001_r02[0]["platform"] == "number"
+    assert pc1001_r02[0]["step"] == 0.5
+    default_r02 = [
+        item
+        for item in json.loads(
+            (
+                REPO_ROOT
+                / "custom_components"
+                / "aqua_temp"
+                / "parameters"
+                / "entity_description.default.json"
+            ).read_text(encoding="utf-8")
+        )
+        if item.get("key") == "R02"
+    ]
+    assert len(default_r02) == 1 and default_r02[0]["platform"] == "sensor"
+
+    # 12. Refresh data button calls async_refresh immediately and stays available offline
+    from custom_components.aqua_temp.button import AquaTempButtonEntity
+    from custom_components.aqua_temp.common.consts import BUTTON_REFRESH_DATA
+    from custom_components.aqua_temp.common.entity_descriptions import (
+        AquaTempButtonEntityDescription,
+    )
+
+    coord = _make_coordinator()
+    coord._api.online = False
+    refresh_desc = AquaTempButtonEntityDescription(
+        key=BUTTON_REFRESH_DATA,
+        is_protocol_code=False,
+        icon="mdi:refresh",
+        translation_key=BUTTON_REFRESH_DATA,
+    )
+    refresh_btn = AquaTempButtonEntity(refresh_desc, coord, "dev1")
+    assert refresh_btn.available is True
+    await refresh_btn.async_press()
+    assert coord.immediate_refresh_count == 1
+    assert coord._api.events == []
+
+    # 13. PC1001 mapping uses R02 (not dead Set_Temp), silent revert triggers retry, and pending target carries into heat turn-on
+    pc1001_map = json.loads(
+        (
+            REPO_ROOT
+            / "custom_components"
+            / "aqua_temp"
+            / "parameters"
+            / "mapping.1442284873216843776.json"
+        ).read_text(encoding="utf-8")
+    )
+    default_map = json.loads(
+        (
+            REPO_ROOT
+            / "custom_components"
+            / "aqua_temp"
+            / "parameters"
+            / "mapping.default.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert pc1001_map["temperature"] == "R02"
+    assert default_map["temperature"] == "Set_Temp"
+
+    cm_pc = AquaTempConfigManager(None, None)
+    cm_pc._api_config = {"device_code": "deviceCode", "protocol_code": "protocolCode"}
+    cm_pc._protocol_codes_configuration["1442284873216843776"] = pc1001_map
+    cm_pc._hvac_modes_reverse["1442284873216843776"] = {"1": "heat"}
+    cm_pc.set_device("dev1", "1442284873216843776")
+    api_pc = AquaTempAPI(None, cm_pc)
+    api_pc._devices["dev1"] = {"Mode": "1", "Power": "0", "R02": "31.0"}
+    sent_payloads = []
+
+    async def fake_perform(request_data, op_name):
+        sent_payloads.append((op_name, request_data["param"]))
+
+    api_pc._perform_action = fake_perform
+    await api_pc.set_temperature("dev1", 29.0)
+    assert sent_payloads[-1][1] == [
+        {"deviceCode": "dev1", "protocolCode": "R02", "value": 29.0}
+    ], f"Expected single R02 write without Set_Temp, got {sent_payloads[-1][1]}"
+    await api_pc._set_hvac_mode("dev1", HVACMode.HEAT, target_temperature=29.0)
+    assert sent_payloads[-1][1] == [
+        {"deviceCode": "dev1", "protocolCode": "R02", "value": 29.0},
+        {"deviceCode": "dev1", "protocolCode": "Mode", "value": "1"},
+    ], f"Expected R02 + Mode write, got {sent_payloads[-1][1]}"
+    assert api_pc._devices["dev1"]["R02"] == "29.0"
+
+    # 13b. Silent cloud/MCU revert on first verify triggers automatic retry
+    coord = _make_coordinator(device_data={"R02": "31.0"})
+    coord._api.target = 31.0
+    refresh_calls = 0
+
+    async def flaky_refresh():
+        nonlocal refresh_calls
+        refresh_calls += 1
+        # Simulate MCU telemetry reverting R02 to 31.0 after first write, then sticking on retry
+        if refresh_calls == 1:
+            coord._api.target = 31.0
+            coord._api.device_data["R02"] = "31.0"
+
+    coord.async_refresh = flaky_refresh
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await coord.set_temperature("dev1", 29.0)
+        verify_task = coord._temp_verify_tasks["dev1"]
+        await verify_task
+
+    assert refresh_calls == 2, f"Expected 2 verify refreshes, got {refresh_calls}"
+    assert coord._api.events == [
+        ("set_temperature", 29.0),
+        ("set_temperature", 29.0),
+    ], f"Expected automatic retry after revert, got {coord._api.events}"
+    assert "dev1" not in coord._pending_target_temps
+
+    # 13c. Turning climate ON before verify finishes carries pending target into set_hvac_mode
+    coord = _make_coordinator(device_data={"R02": "31.0"})
+    gate = asyncio.Event()
+
+    async def gated_sleep(sec):
+        if sec >= 10:
+            await gate.wait()
+
+    with patch("asyncio.sleep", side_effect=gated_sleep):
+        await coord.set_temperature("dev1", 29.0)
+        assert coord._pending_target_temps.get("dev1") == 29.0
+        await coord.set_hvac_mode("dev1", HVACMode.HEAT)
+        assert coord._api.last_hvac_target == 29.0
+        await coord.cancel_tasks()
+    assert "dev1" not in coord._temp_verify_tasks
 
     print("ALL TESTS PASSED")
 

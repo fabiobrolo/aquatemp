@@ -7,6 +7,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 
 from .common.base_entity import BaseEntity, async_setup_base_entry
+from .common.consts import PROTOCOL_CODE_HEATING_TARGET
 from .common.entity_descriptions import AquaTempNumberEntityDescription
 from .managers.aqua_temp_coordinator import AquaTempCoordinator
 
@@ -57,6 +58,13 @@ class AquaTempNumberEntity(BaseEntity, NumberEntity, ABC):
             clamped = max(float(min_val), clamped)
         if max_val is not None:
             clamped = min(float(max_val), clamped)
+
+        if self.entity_description.key == PROTOCOL_CODE_HEATING_TARGET:
+            # Snap to configured temperature step (e.g. 0.5 °C) and sync via set_temperature
+            step = float(self.entity_description.native_step or 0.5)
+            snapped = round(round(clamped / step) * step, 1)
+            await self.local_coordinator.set_temperature(self._device_code, snapped)
+            return
 
         await self.local_coordinator.set_protocol_code(
             self._device_code, self.entity_description.key, str(int(round(clamped)))

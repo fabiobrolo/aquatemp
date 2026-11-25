@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from custom_components.aqua_temp.common.consts import (
     API_STATUS,
     BUTTON_MEASURE_TEMPERATURE,
+    BUTTON_REFRESH_DATA,
     POWER_MODE_OFF,
     POWER_MODE_ON,
 )
@@ -114,6 +115,12 @@ DEFAULT_ENTITY_DESCRIPTIONS: list[AquaTempEntityDescription] = [
         is_protocol_code=False,
         icon="mdi:thermometer-water",
         translation_key=BUTTON_MEASURE_TEMPERATURE,
+    ),
+    AquaTempButtonEntityDescription(
+        key=BUTTON_REFRESH_DATA,
+        is_protocol_code=False,
+        icon="mdi:refresh",
+        translation_key=BUTTON_REFRESH_DATA,
     ),
     AquaTempBinarySensorEntityDescription(
         key="is_fault",

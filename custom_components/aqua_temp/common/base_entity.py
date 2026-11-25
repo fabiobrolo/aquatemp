@@ -9,7 +9,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from ..managers.aqua_temp_coordinator import AquaTempCoordinator
-from .consts import ADD_COMPONENT_SIGNALS, API_STATUS, DOMAIN
+from .consts import ADD_COMPONENT_SIGNALS, API_STATUS, BUTTON_REFRESH_DATA, DOMAIN
 from .entity_descriptions import AquaTempEntityDescription
 
 _LOGGER = logging.getLogger(__name__)
@@ -106,7 +106,7 @@ class BaseEntity(CoordinatorEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        if self.entity_description.key == API_STATUS:
+        if self.entity_description.key in (API_STATUS, BUTTON_REFRESH_DATA):
             return True
 
         if not super().available:

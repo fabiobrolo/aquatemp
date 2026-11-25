@@ -867,10 +867,15 @@
   },
   {
     "key": "R02",
-    "name": "Heating set [R02]",
-    "platform": "sensor",
+    "name": "Heating target temperature [R02]",
+    "platform": "number",
     "device_class": "temperature",
-    "unit_of_measurement": "\u00b0C"
+    "unit_of_measurement": "\u00b0C",
+    "min": 15.0,
+    "max": 40.0,
+    "step": 0.5,
+    "icon": "mdi:thermometer",
+    "translation_key": "heating_target_r02"
   },
   {
     "key": "R03",
