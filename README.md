@@ -93,6 +93,20 @@ When the heat pump is off/idle, the water sitting inside its heat exchanger cool
 5. Turns the heat pump **OFF first**, then restores the original target temperature and original `P01` mode (clearing the recovery flag).
 6. If Home Assistant restarts/crashes or the heat pump goes offline mid-cycle, the integration automatically restores `P01` (and turns off / restores the original setpoint if still stuck at minimum) on startup or as soon as the device comes back online. If you manually raise the target temperature mid-cycle, your heating request is respected and only `P01` is restored.
 
+### Local Timer Controls (`1442284873216843776` / `PC1001`)
+
+For AquaTemp / PHNIX `PC1001` controllers (product ID `1442284873216843776`), the on-board **Local Timer** (executed directly by the heat pump controller even if Home Assistant is offline) is exposed as editable configuration entities:
+
+| Entity Name (EN / PT-BR)                                                | Protocol Code(s) | Platform | Granularity / Values     | Description                                                                                                  |
+| ----------------------------------------------------------------------- | ---------------- | -------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Start timer / Temporizador de Início                                    | `1510`           | switch   | `off` (`0`) / `on` (`1`) | Enables or disables the scheduled daily power-on timer on the controller.                                    |
+| Timer start time / Horário de Início do Temporizador                    | `1511`, `1512`   | time     | `10 min` steps (`HH:M0`) | Daily power-on time. Minutes are snapped downward to 10-minute increments to match the controller.           |
+| End timer / Temporizador de Término                                     | `1509`           | switch   | `off` (`0`) / `on` (`1`) | Enables or disables the scheduled daily power-off timer on the controller.                                   |
+| Timer end time / Horário de Término do Temporizador                     | `1513`, `1514`   | time     | `10 min` steps (`HH:M0`) | Daily power-off time. Minutes are snapped downward to 10-minute increments to match the controller.          |
+| Silent mode timer / Temporizador do Modo Silencioso                     | `H05`            | switch   | `off` (`0`) / `on` (`1`) | Enables or disables the scheduled daily silent/low-noise period on the controller.                           |
+| Silent mode start time / Horário de Início do Modo Silencioso           | `F15`            | time     | Whole hours (`HH:00`)    | Start hour of the silent period (minutes are normalized to `:00`).                                           |
+| Silent mode end time / Horário de Término do Modo Silencioso            | `F17`            | time     | Whole hours (`HH:00`)    | End hour of the silent period (minutes are normalized to `:00`).                                             |
+
 ### Per product ID
 
 Additional components are according to following mapping:

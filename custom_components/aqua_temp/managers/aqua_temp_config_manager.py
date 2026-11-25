@@ -39,6 +39,8 @@ from ..common.entity_descriptions import (
     AquaTempNumberEntityDescription,
     AquaTempSelectEntityDescription,
     AquaTempSensorEntityDescription,
+    AquaTempSwitchEntityDescription,
+    AquaTempTimeEntityDescription,
 )
 from ..models.config_data import ConfigData
 
@@ -434,6 +436,31 @@ class AquaTempConfigManager:
 
                 entities.append(number_entity)
 
+            elif platform == Platform.SWITCH:
+                switch_entity = AquaTempSwitchEntityDescription(
+                    key=key,
+                    icon=data_item.get("icon"),
+                    on_value=str(data_item.get("on_value", "1")),
+                    off_value=str(data_item.get("off_value", "0")),
+                    entity_category=EntityCategory.CONFIG,
+                    translation_key=translation_key,
+                )
+
+                entities.append(switch_entity)
+
+            elif platform == Platform.TIME:
+                time_entity = AquaTempTimeEntityDescription(
+                    key=key,
+                    hour_key=data_item.get("hour_key", ""),
+                    minute_key=data_item.get("minute_key"),
+                    minute_step=int(data_item.get("minute_step", 1)),
+                    icon=data_item.get("icon"),
+                    entity_category=EntityCategory.CONFIG,
+                    translation_key=translation_key,
+                )
+
+                entities.append(time_entity)
+
             else:
                 entity = AquaTempEntityDescription(key=key)
 
@@ -509,11 +536,21 @@ class AquaTempConfigManager:
                 self.platforms.append(entity_description.platform)
 
     def _update_protocol_codes(self, product_id, entity_descriptions):
-        self._protocol_codes[product_id] = [
-            entity_description.key
-            for entity_description in entity_descriptions
-            if entity_description.is_protocol_code
-        ]
+        codes: list[str] = []
+        for entity_description in entity_descriptions:
+            if (
+                entity_description.is_protocol_code
+                and entity_description.key not in codes
+            ):
+                codes.append(entity_description.key)
+            if isinstance(entity_description, AquaTempTimeEntityDescription):
+                for extra in (
+                    entity_description.hour_key,
+                    entity_description.minute_key,
+                ):
+                    if extra and extra not in codes:
+                        codes.append(extra)
+        self._protocol_codes[product_id] = codes
 
     def _get_product_id(self, device_code: str, param: ProductParameter):
         device = self._devices.get(device_code, {})

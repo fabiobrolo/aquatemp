@@ -1165,5 +1165,64 @@
     "platform": "sensor",
     "device_class": null,
     "unit_of_measurement": null
+  },
+  {
+    "key": "1510",
+    "name": "Start timer",
+    "platform": "switch",
+    "icon": "mdi:timer-play-outline",
+    "translation_key": "local_timer_start_enabled"
+  },
+  {
+    "key": "local_timer_start_time",
+    "name": "Start time",
+    "platform": "time",
+    "hour_key": "1511",
+    "minute_key": "1512",
+    "minute_step": 10,
+    "icon": "mdi:clock-start",
+    "translation_key": "local_timer_start_time"
+  },
+  {
+    "key": "1509",
+    "name": "End timer",
+    "platform": "switch",
+    "icon": "mdi:timer-stop-outline",
+    "translation_key": "local_timer_end_enabled"
+  },
+  {
+    "key": "local_timer_end_time",
+    "name": "End time",
+    "platform": "time",
+    "hour_key": "1513",
+    "minute_key": "1514",
+    "minute_step": 10,
+    "icon": "mdi:clock-end",
+    "translation_key": "local_timer_end_time"
+  },
+  {
+    "key": "H05",
+    "name": "Silent timer",
+    "platform": "switch",
+    "icon": "mdi:volume-off",
+    "translation_key": "silent_timer_enabled"
+  },
+  {
+    "key": "silent_timer_start_time",
+    "name": "Silent start time",
+    "platform": "time",
+    "hour_key": "F15",
+    "minute_step": 60,
+    "icon": "mdi:weather-night",
+    "translation_key": "silent_timer_start_time"
+  },
+  {
+    "key": "silent_timer_end_time",
+    "name": "Silent end time",
+    "platform": "time",
+    "hour_key": "F17",
+    "minute_step": 60,
+    "icon": "mdi:weather-sunny",
+    "translation_key": "silent_timer_end_time"
   }
 ]

@@ -91,6 +91,31 @@
         }
       }
     },
+    "switch": {
+      "local_timer_start_enabled": {
+        "name": "Temporizador de Início"
+      },
+      "local_timer_end_enabled": {
+        "name": "Temporizador de Término"
+      },
+      "silent_timer_enabled": {
+        "name": "Temporizador do Modo Silencioso"
+      }
+    },
+    "time": {
+      "local_timer_start_time": {
+        "name": "Horário de Início do Temporizador"
+      },
+      "local_timer_end_time": {
+        "name": "Horário de Término do Temporizador"
+      },
+      "silent_timer_start_time": {
+        "name": "Horário de Início do Modo Silencioso"
+      },
+      "silent_timer_end_time": {
+        "name": "Horário de Término do Modo Silencioso"
+      }
+    },
     "sensor": {
       "1245226668902080512_01": {
         "name": "Uso da saída OUT 05 [/01]"

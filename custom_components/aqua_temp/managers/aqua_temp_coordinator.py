@@ -178,6 +178,15 @@ class AquaTempCoordinator(DataUpdateCoordinator):
         self, device_code: str, protocol_code: str, value: str
     ):
         await self._api.set_protocol_code(device_code, protocol_code, value)
+        self.async_update_listeners()
+        await asyncio.sleep(1)
+        await self.async_request_refresh()
+
+    async def set_protocol_codes(
+        self, device_code: str, values: dict[str, str]
+    ):
+        await self._api.set_protocol_codes(device_code, values)
+        self.async_update_listeners()
         await asyncio.sleep(1)
         await self.async_request_refresh()
 

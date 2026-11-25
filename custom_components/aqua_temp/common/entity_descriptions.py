@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from custom_components.aqua_temp.common.consts import (
     API_STATUS,
     BUTTON_MEASURE_TEMPERATURE,
+    POWER_MODE_OFF,
     POWER_MODE_ON,
 )
 from homeassistant.components.binary_sensor import (
@@ -14,6 +15,8 @@ from homeassistant.components.climate import ClimateEntityDescription, HVACMode
 from homeassistant.components.number import NumberEntityDescription
 from homeassistant.components.select import SelectEntityDescription
 from homeassistant.components.sensor import SensorEntityDescription
+from homeassistant.components.switch import SwitchEntityDescription
+from homeassistant.components.time import TimeEntityDescription
 from homeassistant.const import EntityCategory, Platform, UnitOfTemperature
 from homeassistant.helpers.entity import EntityDescription
 
@@ -68,6 +71,26 @@ class AquaTempButtonEntityDescription(
     ButtonEntityDescription, AquaTempEntityDescription
 ):
     platform: Platform | None = Platform.BUTTON
+
+
+@dataclass(frozen=True, kw_only=True)
+class AquaTempSwitchEntityDescription(
+    SwitchEntityDescription, AquaTempEntityDescription
+):
+    platform: Platform | None = Platform.SWITCH
+    on_value: str = POWER_MODE_ON
+    off_value: str = POWER_MODE_OFF
+
+
+@dataclass(frozen=True, kw_only=True)
+class AquaTempTimeEntityDescription(
+    TimeEntityDescription, AquaTempEntityDescription
+):
+    platform: Platform | None = Platform.TIME
+    is_protocol_code: bool = False
+    hour_key: str = ""
+    minute_key: str | None = None
+    minute_step: int = 1
 
 
 DEFAULT_ENTITY_DESCRIPTIONS: list[AquaTempEntityDescription] = [

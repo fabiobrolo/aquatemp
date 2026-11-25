@@ -91,6 +91,31 @@
         }
       }
     },
+    "switch": {
+      "local_timer_start_enabled": {
+        "name": "Start timer"
+      },
+      "local_timer_end_enabled": {
+        "name": "End timer"
+      },
+      "silent_timer_enabled": {
+        "name": "Silent mode timer"
+      }
+    },
+    "time": {
+      "local_timer_start_time": {
+        "name": "Timer start time"
+      },
+      "local_timer_end_time": {
+        "name": "Timer end time"
+      },
+      "silent_timer_start_time": {
+        "name": "Silent mode start time"
+      },
+      "silent_timer_end_time": {
+        "name": "Silent mode end time"
+      }
+    },
     "sensor": {
       "1245226668902080512_01": {
         "name": "Usage of OUT 05 [/01]"

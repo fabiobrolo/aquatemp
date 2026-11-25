@@ -1,6 +1,7 @@
-"""Self-check tests for P01/P02/P03 controls, measure_temperature, recovery, and i18n."""
+"""Self-check tests for P01/P02/P03, local timer switch/time, measure_temperature, recovery, and i18n."""
 import asyncio
 from dataclasses import dataclass
+from datetime import time as dt_time
 from enum import StrEnum
 import glob
 import json
@@ -47,6 +48,8 @@ def _install_ha_stubs():
         NUMBER="number",
         SELECT="select",
         SENSOR="sensor",
+        SWITCH="switch",
+        TIME="time",
     )
     ha_const.UnitOfTemperature = types.SimpleNamespace(CELSIUS="°C", FAHRENHEIT="°F")
     ha_const.UnitOfTime = types.SimpleNamespace(MINUTES="min")
@@ -90,6 +93,14 @@ def _install_ha_stubs():
     @dataclass(frozen=True, kw_only=True)
     class SensorEntityDescription(EntityDescription):
         native_unit_of_measurement: str | None = None
+
+    @dataclass(frozen=True, kw_only=True)
+    class SwitchEntityDescription(EntityDescription):
+        pass
+
+    @dataclass(frozen=True, kw_only=True)
+    class TimeEntityDescription(EntityDescription):
+        pass
 
     ha_helpers = types.ModuleType("homeassistant.helpers")
     ha_helpers.selector = types.SimpleNamespace(
@@ -165,6 +176,12 @@ def _install_ha_stubs():
     ha_sel.SelectEntity = _StubEntity
     ha_sen = types.ModuleType("homeassistant.components.sensor")
     ha_sen.SensorEntityDescription = SensorEntityDescription
+    ha_sw = types.ModuleType("homeassistant.components.switch")
+    ha_sw.SwitchEntityDescription = SwitchEntityDescription
+    ha_sw.SwitchEntity = _StubEntity
+    ha_time = types.ModuleType("homeassistant.components.time")
+    ha_time.TimeEntityDescription = TimeEntityDescription
+    ha_time.TimeEntity = _StubEntity
     ha_clim.ClimateEntityDescription = ClimateEntityDescription
 
     aiohttp = types.ModuleType("aiohttp")
@@ -194,6 +211,8 @@ def _install_ha_stubs():
         "homeassistant.components.number": ha_num,
         "homeassistant.components.select": ha_sel,
         "homeassistant.components.sensor": ha_sen,
+        "homeassistant.components.switch": ha_sw,
+        "homeassistant.components.time": ha_time,
         "homeassistant.core": ha_core,
         "homeassistant.const": ha_const,
         "homeassistant.config_entries": ha_cfg,
@@ -219,6 +238,8 @@ from custom_components.aqua_temp.common.entity_descriptions import (  # noqa: E4
     DEFAULT_ENTITY_DESCRIPTIONS,
     AquaTempNumberEntityDescription,
     AquaTempSelectEntityDescription,
+    AquaTempSwitchEntityDescription,
+    AquaTempTimeEntityDescription,
 )
 from custom_components.aqua_temp.managers.aqua_temp_config_manager import (  # noqa: E402
     AquaTempConfigManager,
@@ -228,6 +249,8 @@ from custom_components.aqua_temp.managers.aqua_temp_coordinator import (  # noqa
 )
 from custom_components.aqua_temp.number import AquaTempNumberEntity  # noqa: E402
 from custom_components.aqua_temp.select import AquaTempSelectEntity  # noqa: E402
+from custom_components.aqua_temp.switch import AquaTempSwitchEntity  # noqa: E402
+from custom_components.aqua_temp.time import AquaTempTimeEntity  # noqa: E402
 
 
 class FakeHass:
@@ -278,6 +301,13 @@ class FakeAPI:
         self.events.append(("set_protocol_code", code, value))
         self.device_data[code] = value
 
+    async def set_protocol_codes(self, dc, values):
+        if self.fail_protocol_code:
+            raise RuntimeError("protocol code rejected")
+        self.events.append(("set_protocol_codes", dict(values)))
+        for code, value in values.items():
+            self.device_data[code] = str(value)
+
     async def set_temperature(self, dc, temp):
         self.events.append(("set_temperature", temp))
         self.target = temp
@@ -327,8 +357,12 @@ def _test_translations():
         pid = Path(path).name.removeprefix("entity_description.").removesuffix(".json")
         for item in json.loads(Path(path).read_text(encoding="utf-8")):
             plat = item.get("platform")
-            if plat not in ("sensor", "binary_sensor", "select", "number"):
+            if plat not in ("sensor", "binary_sensor", "select", "number", "switch", "time"):
                 continue
+            if plat in ("switch", "time"):
+                assert pid == "1442284873216843776", (
+                    f"Local timer entities must only be added to 1442284873216843776, found in {pid}"
+                )
             tk = item.get("translation_key") or f"{pid}_{item['key']}".replace("/", "").lower()
             assert tk in en["entity"][plat], f"Missing en translation {plat}.{tk}"
             assert tk in pt_br["entity"][plat], f"Missing pt-BR translation {plat}.{tk}"
@@ -563,6 +597,137 @@ async def run_tests():
     assert len(post_calls) == 2
     assert post_calls[0]["headers"].get("Connection") == "close"
     assert post_calls[0]["timeout"] == API_REQUEST_TIMEOUT
+
+    # 10. Local timer switches & times for PC1001 (1510/1511/1512, 1509/1513/1514, H05/F15/F17)
+    timer_data = {
+        "1510": "0",
+        "1511": "0",
+        "1512": "10",
+        "1509": "0",
+        "1513": "0",
+        "1514": "20",
+        "H05": "0",
+        "F15": "22",
+        "F17": "8",
+    }
+    coord = _make_coordinator(device_data=timer_data)
+
+    for key, tk in (
+        ("1510", "local_timer_start_enabled"),
+        ("1509", "local_timer_end_enabled"),
+        ("H05", "silent_timer_enabled"),
+    ):
+        sw_desc = AquaTempSwitchEntityDescription(key=key, translation_key=tk)
+        sw_ent = AquaTempSwitchEntity(sw_desc, coord, "dev1")
+        assert sw_ent._attr_is_on is False
+        prev_listeners = coord.listener_updates
+        with patch("asyncio.sleep", side_effect=fake_sleep):
+            await sw_ent.async_turn_on()
+        assert coord.listener_updates == prev_listeners + 1
+        sw_ent._handle_coordinator_update()
+        assert sw_ent._attr_is_on is True
+        assert coord._api.events[-1] == ("set_protocol_code", key, "1")
+        with patch("asyncio.sleep", side_effect=fake_sleep):
+            await sw_ent.async_turn_off()
+        sw_ent._handle_coordinator_update()
+        assert sw_ent._attr_is_on is False
+        assert coord._api.events[-1] == ("set_protocol_code", key, "0")
+
+    start_desc = AquaTempTimeEntityDescription(
+        key="local_timer_start_time",
+        hour_key="1511",
+        minute_key="1512",
+        minute_step=10,
+        translation_key="local_timer_start_time",
+    )
+    start_ent = AquaTempTimeEntity(start_desc, coord, "dev1")
+    assert start_ent._attr_native_value == dt_time(0, 10)
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await start_ent.async_set_value(dt_time(7, 25))  # snapped to 07:20
+        await start_ent.async_set_value(dt_time(23, 59))  # snapped to 23:50
+    start_ent._handle_coordinator_update()
+    assert start_ent._attr_native_value == dt_time(23, 50)
+    assert coord._api.events[-2:] == [
+        ("set_protocol_codes", {"1511": "7", "1512": "20"}),
+        ("set_protocol_codes", {"1511": "23", "1512": "50"}),
+    ]
+
+    end_desc = AquaTempTimeEntityDescription(
+        key="local_timer_end_time",
+        hour_key="1513",
+        minute_key="1514",
+        minute_step=10,
+        translation_key="local_timer_end_time",
+    )
+    end_ent = AquaTempTimeEntity(end_desc, coord, "dev1")
+    assert end_ent._attr_native_value == dt_time(0, 20)
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await end_ent.async_set_value(dt_time(16, 49))  # snapped to 16:40
+    end_ent._handle_coordinator_update()
+    assert end_ent._attr_native_value == dt_time(16, 40)
+    assert coord._api.events[-1] == ("set_protocol_codes", {"1513": "16", "1514": "40"})
+
+    silent_start_desc = AquaTempTimeEntityDescription(
+        key="silent_timer_start_time",
+        hour_key="F15",
+        minute_step=60,
+        translation_key="silent_timer_start_time",
+    )
+    silent_start_ent = AquaTempTimeEntity(silent_start_desc, coord, "dev1")
+    assert silent_start_ent._attr_native_value == dt_time(22, 0)
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await silent_start_ent.async_set_value(dt_time(21, 45))  # hour-only -> 21:00
+    silent_start_ent._handle_coordinator_update()
+    assert silent_start_ent._attr_native_value == dt_time(21, 0)
+    assert coord._api.events[-1] == ("set_protocol_codes", {"F15": "21"})
+
+    silent_end_desc = AquaTempTimeEntityDescription(
+        key="silent_timer_end_time",
+        hour_key="F17",
+        minute_step=60,
+        translation_key="silent_timer_end_time",
+    )
+    silent_end_ent = AquaTempTimeEntity(silent_end_desc, coord, "dev1")
+    assert silent_end_ent._attr_native_value == dt_time(8, 0)
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await silent_end_ent.async_set_value(dt_time(7, 30))  # hour-only -> 07:00
+    silent_end_ent._handle_coordinator_update()
+    assert silent_end_ent._attr_native_value == dt_time(7, 0)
+    assert coord._api.events[-1] == ("set_protocol_codes", {"F17": "7"})
+
+    # Missing/invalid values return None safely
+    coord._api.device_data["F15"] = ""
+    silent_start_ent._handle_coordinator_update()
+    assert silent_start_ent._attr_native_value is None
+    coord._api.device_data["H05"] = ""
+    sw_ent._handle_coordinator_update()
+    assert sw_ent._attr_is_on is None
+
+    # ConfigManager registers and deduplicates switch + time protocol codes
+    cm = AquaTempConfigManager(None, None)
+    cm._update_protocol_codes(
+        "1442284873216843776",
+        [
+            AquaTempSwitchEntityDescription(key="1510"),
+            start_desc,
+            AquaTempSwitchEntityDescription(key="1509"),
+            end_desc,
+            AquaTempSwitchEntityDescription(key="H05"),
+            silent_start_desc,
+            silent_end_desc,
+        ],
+    )
+    assert cm._protocol_codes["1442284873216843776"] == [
+        "1510",
+        "1511",
+        "1512",
+        "1509",
+        "1513",
+        "1514",
+        "H05",
+        "F15",
+        "F17",
+    ]
 
     print("ALL TESTS PASSED")
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.2.0
+
+- Expose on-board **Local Timer** controls for product ID `1442284873216843776` (`PC1001`) as editable `CONFIG` entities (`switch` and `time`) with full `en` and `pt-BR` localization:
+  - Start timer (`1510`) and Timer start time (`1511` / `1512`, 10-minute increments)
+  - End timer (`1509`) and Timer end time (`1513` / `1514`, 10-minute increments)
+  - Silent mode timer (`H05`), Silent mode start time (`F15`), and Silent mode end time (`F17`, whole hours)
+- Add atomic multi-code writes (`set_protocol_codes`) and immediate coordinator listener updates after parameter changes
+
 ## 3.1.1
 
 - Prevent multi-minute stalls on idle keep-alive sockets by closing HTTP connections and enforcing a 20s request timeout (`ClientTimeout(total=20, connect=10)`)
