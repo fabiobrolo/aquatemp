@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.1
+
+- Prevent multi-minute stalls on idle keep-alive sockets by closing HTTP connections and enforcing a 20s request timeout (`ClientTimeout(total=20, connect=10)`)
+- Re-authenticate on any `DeviceControl` retry (and handle numeric `-100` error codes) so expired/kicked sessions recover on the first button press
+- Always restore `P01` in `Measure temperature` cleanup even if the initial `P01` switch timed out after delivery
+- Preserve minimum target temperature across `set_hvac_mode` during `Measure temperature` and notify HA entities immediately on turn-on/off
+
 ## 3.1.0
 
 - Expose water pump controller parameters as editable configuration entities: `Water pump mode [P01]` (`select`: continuous / with_compressor / intermittent), `Water pump interval [P02]` (`number`: 30–120 min), and `Water pump duration [P03]` (`number`: 2–20 min)

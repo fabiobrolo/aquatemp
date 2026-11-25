@@ -170,6 +170,7 @@ def _install_ha_stubs():
     aiohttp = types.ModuleType("aiohttp")
     aiohttp.ClientResponseError = Exception
     aiohttp.ClientSession = object
+    aiohttp.ClientTimeout = lambda **kw: kw
     aiofiles = types.ModuleType("aiofiles")
     crypto = types.ModuleType("cryptography")
     crypto_fernet = types.ModuleType("cryptography.fernet")
@@ -281,8 +282,10 @@ class FakeAPI:
         self.events.append(("set_temperature", temp))
         self.target = temp
 
-    async def set_hvac_mode(self, dc, mode):
+    async def set_hvac_mode(self, dc, mode, target_temperature=None):
         self.events.append(("set_hvac_mode", mode))
+        if target_temperature is not None:
+            self.target = target_temperature
         self.power = mode != HVACMode.OFF
 
 
@@ -484,6 +487,82 @@ async def run_tests():
         ("set_protocol_code", "P01", "2"),
     ], f"Unexpected recovery events: {coord._api.events}"
     assert coord.config_manager.get_pending_measure_restore("dev1") is None
+
+    # 8. Initial P01 switch throws after delivery (e.g. response timeout): finally still restores P01
+    coord = _make_coordinator(device_data={"P01": "2", "P03": "5"})
+    p01_calls = []
+
+    async def flaky_p01(dc, code, value):
+        p01_calls.append((code, value))
+        if len(p01_calls) == 1:
+            coord._api.device_data[code] = value
+            raise TimeoutError("timed out after delivery")
+        coord._api.events.append(("set_protocol_code", code, value))
+        coord._api.device_data[code] = value
+
+    coord._api.set_protocol_code = flaky_p01
+    with patch("asyncio.sleep", side_effect=fake_sleep):
+        await coord.measure_temperature("dev1")
+        await coord._measure_tasks["dev1"]
+
+    assert p01_calls == [("P01", "0"), ("P01", "2")], f"P01 not restored: {p01_calls}"
+    assert coord._api.device_data["P01"] == "2"
+
+    # 9. _perform_action clears token and re-connects on transient failure, and _post_request closes connection + sets timeout
+    from custom_components.aqua_temp.managers.aqua_temp_api import (
+        API_REQUEST_TIMEOUT,
+        AquaTempAPI,
+    )
+
+    cm = AquaTempConfigManager(None, None)
+    cm._api_config = {
+        "url": "https://example.invalid",
+        "suffix": "",
+        "error_msg": "error_msg",
+        "error_code": "error_code",
+    }
+    api = AquaTempAPI(None, cm)
+    api.set_token("stale-token")
+    connects = []
+
+    async def fake_connect():
+        connects.append(api._token)
+        api.set_token("fresh-token")
+
+    post_calls = []
+
+    class _FakeResp:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def raise_for_status(self):
+            pass
+
+        async def json(self):
+            return self._payload
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    class _FakeSession:
+        def post(self, url, headers=None, json=None, ssl=None, timeout=None):
+            post_calls.append({"headers": dict(headers or {}), "timeout": timeout})
+            if len(post_calls) == 1:
+                raise ConnectionResetError("stale keep-alive")
+            return _FakeResp({"error_msg": "Success", "error_code": "0"})
+
+    api._session = _FakeSession()
+    api._connect = fake_connect
+    with patch("custom_components.aqua_temp.managers.aqua_temp_api.sleep", side_effect=fake_sleep):
+        await api._perform_action({"param": []}, "Power")
+
+    assert connects == [None], f"Token was not cleared before retry: {connects}"
+    assert len(post_calls) == 2
+    assert post_calls[0]["headers"].get("Connection") == "close"
+    assert post_calls[0]["timeout"] == API_REQUEST_TIMEOUT
 
     print("ALL TESTS PASSED")
 

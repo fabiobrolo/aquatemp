@@ -340,11 +340,12 @@ class AquaTempCoordinator(DataUpdateCoordinator):
                 original_pump_mode is not None
                 and original_pump_mode != PUMP_MODE_CONTINUOUS
             ):
+                # Mark before sending so finally still restores P01 if a response times out after delivery
+                pump_mode_changed = True
                 try:
                     await self._api.set_protocol_code(
                         device_code, PROTOCOL_CODE_PUMP_MODE, PUMP_MODE_CONTINUOUS
                     )
-                    pump_mode_changed = True
                     await asyncio.sleep(1)
                 except Exception as pump_err:
                     _LOGGER.warning(
@@ -356,8 +357,11 @@ class AquaTempCoordinator(DataUpdateCoordinator):
             setpoint_lowered = True
             await asyncio.sleep(2)
 
-            await self._api.set_hvac_mode(device_code, target_mode)
+            await self._api.set_hvac_mode(
+                device_code, target_mode, target_temperature=min_temp
+            )
             turned_on = True
+            self.async_update_listeners()
             await asyncio.sleep(1)
             await self.async_request_refresh()
 
@@ -419,6 +423,7 @@ class AquaTempCoordinator(DataUpdateCoordinator):
 
             try:
                 if not cancelled:
+                    self.async_update_listeners()
                     await self.async_request_refresh()
             except Exception as refresh_err:
                 _LOGGER.error(

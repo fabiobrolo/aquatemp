@@ -6,7 +6,7 @@ import json
 import logging
 import sys
 
-from aiohttp import ClientResponseError, ClientSession
+from aiohttp import ClientResponseError, ClientSession, ClientTimeout
 
 from custom_components.aqua_temp.models.exceptions import (
     InvalidTokenError,
@@ -43,6 +43,7 @@ from ..common.endpoints import Endpoints
 from .aqua_temp_config_manager import AquaTempConfigManager
 
 _LOGGER = logging.getLogger(__name__)
+API_REQUEST_TIMEOUT = ClientTimeout(total=20, connect=10)
 
 
 class AquaTempAPI:
@@ -208,7 +209,12 @@ class AquaTempAPI:
         else:
             self._headers[HTTP_HEADER_X_TOKEN] = token
 
-    async def set_hvac_mode(self, device_code: str, hvac_mode: HVACMode):
+    async def set_hvac_mode(
+        self,
+        device_code: str,
+        hvac_mode: HVACMode,
+        target_temperature: float | None = None,
+    ):
         if hvac_mode == HVACMode.OFF:
             await self._set_power_mode(device_code, POWER_MODE_OFF)
 
@@ -220,7 +226,7 @@ class AquaTempAPI:
 
                 await self._update_device(device_code)
 
-            await self._set_hvac_mode(device_code, hvac_mode)
+            await self._set_hvac_mode(device_code, hvac_mode, target_temperature)
 
     async def set_temperature(self, device_code: str, temperature: float):
         """Set new target temperature."""
@@ -281,7 +287,12 @@ class AquaTempAPI:
         if device_code in self._devices:
             self._devices[device_code][power_pc_key] = str(value)
 
-    async def _set_hvac_mode(self, device_code: str, hvac_mode: HVACMode):
+    async def _set_hvac_mode(
+        self,
+        device_code: str,
+        hvac_mode: HVACMode,
+        target_temperature: float | None = None,
+    ):
         """Set new target hvac mode."""
         if hvac_mode == HVACMode.OFF:
             return
@@ -294,7 +305,8 @@ class AquaTempAPI:
             device_code, hvac_mode, CONFIG_HVAC_SET
         )
 
-        target_temperature = self.get_device_target_temperature(device_code)
+        if target_temperature is None:
+            target_temperature = self.get_device_target_temperature(device_code)
 
         _LOGGER.info(
             f"Set HVAC Mode: {hvac_mode}, PC Mode: {action_pc_key}, Target temperature: {target_temperature}"
@@ -386,7 +398,7 @@ class AquaTempAPI:
 
             if error_msg != "Success":
                 error_code = operation_response.get(param_error_code)
-                if error_code == "-100":
+                if str(error_code) == "-100":
                     self.set_token()
 
                     error = InvalidTokenError(
@@ -410,6 +422,8 @@ class AquaTempAPI:
 
         if error is not None:
             if attempt < API_MAX_ATTEMPTS:
+                # Re-login on retry so a kicked or expired single-session token recovers on the first press
+                self.set_token()
                 await sleep(1)
 
                 await self._connect()
@@ -452,7 +466,7 @@ class AquaTempAPI:
 
         else:
             error_code = data_response.get(param_error_code)
-            if error_code == "-100":
+            if str(error_code) == "-100":
                 raise InvalidTokenError(f"Fetch data for device {device_code}")
 
             else:
@@ -671,8 +685,14 @@ class AquaTempAPI:
         if endpoint == Endpoints.DeviceControl:
             _LOGGER.info(f"Sending request to control device, Data: {data}")
 
+        # Close each connection so 5-minute idle NAT timeouts never stall control commands
+        headers = {**self._headers, "Connection": "close"}
         async with self._session.post(
-            url, headers=self._headers, json=data, ssl=False
+            url,
+            headers=headers,
+            json=data,
+            ssl=False,
+            timeout=API_REQUEST_TIMEOUT,
         ) as response:
             response.raise_for_status()
 
